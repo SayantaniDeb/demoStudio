@@ -1,0 +1,4 @@
+<!doctype html><html><head><title>Creative editor verification</title></head><body><div id="editor"></div><p id="result">Waiting for edit</p><script type="module">
+import React from 'react';import {createRoot} from 'react-dom/client';import {CreativeEditor} from '/src/CreativeEditor.tsx';import {validateCreative} from '/shared/creative.mjs';
+let plan=validateCreative(await(await fetch('/tests/fixtures/creative-renderer-fixture.json')).json());const root=createRoot(document.querySelector('#editor'));function draw(){root.render(React.createElement(CreativeEditor,{plan,onChange:next=>{plan=next;document.querySelector('#result').textContent='Saved text: '+plan.scenes[0].components[0].elements.find(e=>e.kind==='text').text;draw()}}))}draw();
+</script></body></html>

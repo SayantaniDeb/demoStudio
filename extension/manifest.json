@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Frame Cursor Companion",
+  "version": "0.1.0",
+  "description": "Record webpage cursor coordinates for Frame demos.",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "all_frames": false,
+      "run_at": "document_start"
+    }
+  ]
+}
