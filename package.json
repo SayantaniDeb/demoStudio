@@ -10,11 +10,14 @@
     "serve": "node server/run.mjs"
   },
   "dependencies": {
+    "@remotion/player": "4.0.534",
+    "@remotion/web-renderer": "4.0.534",
     "@sparticuz/chromium": "148.0.0",
     "firebase": "^12.0.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "remotion": "4.0.534",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
