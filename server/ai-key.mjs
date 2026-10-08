@@ -1,0 +1,1 @@
+export function requestGroqKey(req){const value=req.headers['x-groq-api-key'];if(value!==undefined){if(typeof value!=='string'||!/^gsk_[A-Za-z0-9_-]{10,250}$/.test(value))throw Error('Enter a valid Groq API key.');return value}return process.env.GROQ_API_KEY||process.env.GROQ_API_KEY_1}

@@ -9,3 +9,9 @@ const unordered=structuredClone(plan);unordered.scenes[0].components[0].keyframe
 let calls=0;const result=await generateCreative({title:'Test source'},{key:'test',fetchImpl:async(_url,options)=>{calls++;assert.ok(JSON.parse(options.body).messages[0].content.includes('SVG path geometry'));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(plan)}}]})}}});
 assert.equal(calls,1);assert.equal(result.scenes[0].components[0].name,'Morph-like capsule');
 console.log('PASS: custom geometry preserved, unsafe markup rejected, timestamp validation, generation response integration.');
+let retries=0;
+await generateCreative({title:'Template'},{key:'test',fetchImpl:async()=>{retries++;return retries===1?{ok:false,status:400,json:async()=>({error:{code:'json_validate_failed'}})}:{ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(plan)}}]})}}});
+assert.equal(retries,2);
+await assert.rejects(()=>generateCreative({},{key:'test',fetchImpl:async()=>({ok:false,status:400,json:async()=>({error:{code:'model_not_found'}})})}),/configured Groq model is unavailable/);
+await assert.rejects(()=>generateCreative({},{key:'test',fetchImpl:async()=>({ok:false,status:401,json:async()=>({})})}),/credentials/);
+console.log('PASS: JSON generation retries, unavailable model and credential errors.');

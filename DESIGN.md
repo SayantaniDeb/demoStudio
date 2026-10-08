@@ -1,37 +1,53 @@
-# Design System: Frame motion studio
+# Design System: Frame
 
 ## 1. Visual Theme & Atmosphere
-A focused creative workbench: neutral surfaces, a charcoal navigation rail, and one restrained moss accent. Density 5, variance 5, motion 4. The preview occupies the dominant left column; editing tools occupy a quieter right column. Use real media and direct manipulation as the visual center. The studio heading is left aligned, with a small film-strip illustration as visual punctuation, not a marketing hero.
+Frame is a desktop-first studio for recording screens, editing footage, and making animated product demos from videos, images, or public websites. Make the work itself the focal point: an expansive preview, a precise timeline, and quiet controls. Balanced density (6/10), restrained asymmetry (5/10), fluid motion (4/10). Design a working creative tool, with no marketing hero inside the editor.
 
 ## 2. Color Palette & Roles
-- **Studio Canvas** (#F4F4F5): page background.
-- **Paper Surface** (#FFFFFF): preview and input surfaces.
-- **Quiet Surface** (#FAFAFA): inspector and timeline backgrounds.
-- **Charcoal Ink** (#27272A): primary text and navigation depth. Never pure black.
-- **Secondary Ink** (#52525B): body and helper text.
-- **Structural Line** (#E4E4E7): dividers and neutral outlines.
-- **Moss Accent** (#667E42): selected states, primary actions, focus, and trim handles. One accent family, low saturation; its pale tint (#E8EEDC) marks selection. No neon gradients or purple UI glows. Generated video artwork retains its own chosen design palette.
+- Studio Canvas (#F4F4F5): application background.
+- Paper Surface (#FFFFFF): inspector and input surfaces.
+- Charcoal Ink (#18181B): text and preview surround.
+- Muted Zinc (#71717A): supporting metadata.
+- Structural Zinc (#D4D4D8): separators and control outlines.
+- Muted Lime (#B8D568): the only accent, for primary actions, active selections, and focus indicators; pair with Charcoal Ink for readable text.
+Use one neutral temperature throughout. No pure black, neon, or purple/blue gradients.
 
 ## 3. Typography Rules
-- Display and body: Geist, sans-serif; headings weight 600, tracking -0.035em, clamp(1.5rem, 2.5vw, 2rem).
-- Body and helper copy: 14px minimum, line-height 1.55; readable measure at most 65ch.
-- Timestamps: Geist Mono, monospace; tabular numbers, 12px compact metadata.
-- Do not use Inter or generic serif typography in the studio. User media and video templates are separate from the software UI.
+Use Geist for headings and body, Geist Mono for timecodes and technical metadata. Page headings 28–32px, section labels 14px semibold, body 14–16px with 1.5 line height; support text 14px minimum. Tight heading tracking (-0.025em), restrained weight hierarchy. Keep explanatory prose within 65ch. No Inter or serif fonts in the application.
 
 ## 4. Component Stylings
-- Buttons: minimum 44px tap target, 10px corners, one filled primary action per functional group. Neutral secondary controls. Active press translates down 1px; no outer glows.
-- Storyboard options: vertical list, thumbnail on the left and name/helper on the right. Selection uses a moss outline and subtle pale tint; no equal three-card promotional row.
-- Inputs: visible label above, 14px text, 44px height, neutral border; moss focus ring. Errors below the relevant control.
-- Timeline: compact strip with source-dependent clip names. No numeric trim forms. Drag handles trim; clips reorder; the toolbar splits and deletes. Handles have a visible grip and an enlarged touch hit area. Keyboard arrow adjustments remain available.
-- Preview: rounded 14px, neutral surround, strong separation from tools. Paused previews must show meaningful content rather than disappearing entrance states.
-- Elevation: only the main workbench and selected media frame use a faint neutral shadow. Use dividers in the inspector rather than a pile of elevated cards.
-- Loading: progress text and a matching skeleton; no decorative circular spinner. Empty states explain upload, link, or capture actions with a composed film-strip visual.
+Buttons have 10px corners, 44px minimum targets, crisp labels, and transform-based press feedback. Use one primary action per workflow step. Secondary actions use outline or quiet surfaces. Use line icons with text labels for consequential actions.
+Use containers only to establish workspace regions; avoid nesting cards around every setting. Inspector groups use separators and 20px padding. Inputs have visible labels above, helper text and errors below, and a visible lime focus ring with dark outline contrast. Use layout-matched skeletons, informative empty previews, inline errors, and cancellable progress for analysis/export. Disabled actions explain missing prerequisites.
 
 ## 5. Layout Principles
-Use CSS Grid. Max studio width 1400px. Preview and inspector form an asymmetric split. No overlapping content or percentage-width hacks. Main spacing uses 8, 12, 16, 24, and 32px steps. Below 768px, every multi-column layout collapses to one column. Storyboard thumbnails remain a vertical list. No horizontal page overflow. Navigation reduces to the existing compact mobile navigation; animation source options stack when space is insufficient. Use min-height:100dvh rather than fixed viewport height.
+Use CSS Grid. Desktop shell: compact header; narrow workflow navigation; large central preview and timeline; 300px inspector. Contain general pages at 1440px; allow the editing workspace to fill available width. An asymmetric start screen pairs a recording action with smaller import and animation paths. Do not invent a multi-project library: the prototype persists one local project.
+Screen Capture includes screen/camera/microphone setup and recording states. Editor includes playback, trim, split, reorder, delete, zoom, pointer, captions, music, and camera styling. Animation includes video/image/website inputs, template selection, editable scene copy, and source analysis. Export offers the supported 1080p WebM workflow, progress, and cancel. Do not promise MP4, cloud media storage, precise cursor tracking, automatic captions, or exact website reconstruction.
+Below 768px, collapse multi-column regions into one column; inspector becomes a clearly labelled disclosure beneath preview. Timeline stays within viewport with its own deliberate scrolling region; no page overflow. Use 44px touch targets, clamp-based headings and spacing, and min-height:100dvh for viewport shells. No overlapping content or percentage layout hacks.
 
 ## 6. Motion & Interaction
-Motion supports orientation, not decoration. Use a soft 200ms easing approximation to spring stiffness 100/damping 20. Stagger storyboard entrance by 45ms. Animate only transform and opacity. An active selection marker has a subtle opacity breathing loop. Respect prefers-reduced-motion by disabling all loops and entrance motion. Keep CPU-heavy video rendering in its existing canvas engine; software UI transitions do not alter the exported animation. Native editing drag affordances remain because the user explicitly requested timeline manipulation; generated cursor styles remain within the video artwork.
+Use brief opacity/transform transitions, with spring stiffness 100 and damping 20 where appropriate. Introduce scene lists with subtle stagger. Recording and processing indicators may pulse or shimmer while active; idle controls remain calm. Never animate layout dimensions or positions. Respect reduced-motion preferences, keyboard navigation, visible focus, and accessible progress announcements.
 
 ## 7. Anti-Patterns (Banned)
-No emojis, Inter, generic serif dashboard fonts, pure black, neon outer glows, oversaturated accents, gradient headline text, centered marketing heroes, filler scroll arrows, invented metrics, fake placeholder people, equal three-column feature cards, overlapping content, or broken remote imagery. Avoid “Elevate,” “Seamless,” “Unleash,” and similar generic marketing copy. Do not replace real media with fabricated product screenshots. Do not change the user's mouse cursor decoratively; functional trim/reorder cursors and exported video pointers are intentional editing affordances.
+No emojis in product UI, Inter, generic serifs, pure black, neon glows, oversaturated accents, gradient headlines, custom cursors, overlapping elements, three equal feature cards, fake metrics, generic sample names, broken image URLs, filler scroll instructions, centered marketing heroes, or copy such as “Elevate”, “Seamless”, and “Unleash”. Use source-grounded preview examples and real functional labels.
+
+## 8. Stitch Generation Brief
+Create one cohesive desktop web application design with five connected screens: (1) start/setup, (2) recording in progress, (3) screen editor with selected footage and timeline, (4) animation studio with website/video/image input, template picker and scene inspector, (5) export settings/progress. Show the same shell, typography, spacing, and tokens across all screens. Include a compact mobile adaptation. Keep capture, editing, animation, and exporting recognizable as sequential actions. Use realistic footage thumbnails and legible control labels. Deliver application screens, not a promotional landing page.
+
+## 9. Applied Stitch project reference
+Source: https://stitch.withgoogle.com/projects/15648441996604160806 — Frame Demo Studio UI.
+Applied the generated studio shell's compact navigation rail, modular workbench surfaces, lime #B8D568 primary controls, Geist typography, dense timeline toolbar and restrained inspector cards in `src/stitch-theme.css`. Responsive layouts preserve 44px mobile controls. The three built-in video storyboard renderers now also adapt this project's visual direction: Paper & Stickers uses offset source-browser cards and tactile lime labels; Editorial Launch uses asymmetric typography and numbered feature chapters; Aurora Showcase uses charcoal depth, a subtle grid and restrained lime ambient light. All use Geist, source-grounded content and shared browser-frame styling. These are code adaptations of the existing Stitch project, not newly generated Stitch screens. Preview and WebM export share the same canvas renderer. Unsupported telemetry, 3D tools and performance claims in generated markup are not implemented or presented as functional controls.
+
+## 10. Animation Studio screen implementation
+Reference screen: `4473d072009b4db8bc714196ba5c187c` from the supplied Stitch HTML. The animation workspace uses a source-analysis bar, charcoal grid stage, compact preset inspector, source-rendered storyboard thumbnails, scene navigation and synchronized headline/subcopy editing. Actual chapter counts and durations replace the sample four-scene values. Rendering remains the supported Canvas/WebM pipeline; sample WebGPU telemetry, optical lens controls and 4K claims are omitted.
+
+## 11. Timeline editor reference
+Adapted the local `frame_screen_editor_1` and `frame_screen_editor_2` exports: charcoal preview, compact transport and editing toolbar, named screen/camera rows, aligned zoom/cursor and real caption/music lanes, and a right-side Properties Inspector. Pointer tools move from the timeline into that inspector. Lane labels reflect current settings; speech-caption blocks reflect their actual source timing. Original split, trim, reorder, camera editing and export handlers remain connected. No sample snapping, auto-pacing or fake waveform controls are added.
+
+## 12. Editable component lanes
+Screen, camera, zoom/cursor, captions and music have explicit empty states and add/remove actions. Removing screen or camera excludes that layer from rendering while retaining source assets for restoration. Importing screen through its lane keeps existing camera media. Removing zoom/cursor resets its render settings; caption removal disables captions; music removal clears its asset and mix selection. Music selection and volume are editable directly in its lane.
+
+## 13. Inline lane editing
+Zoom and music use the same clip pattern: an empty Add button, a selectable clip, an inline editor beneath the lane, and clip-level removal. Zoom amounts are persisted per screen segment and inherited after splitting; manual timeline zoom works in portrait as well as landscape and is used by the shared preview/export renderer. Camera Add opens a chooser for imported footage, restoring saved camera media, or an explicitly labelled Record new camera take action. Opening that chooser never requests camera access.
+
+## Timeline focus and zoom refinement
+Use the existing Stitch editor language: Geist labels, Geist Mono timing, white controls, Zinc borders (#e4e4e7), and the restrained lime accent (#b8d568). Put zoom amount, presets and Fit in one compact inline editor beneath the selected zoom lane. Follow and focus switches belong in that same editor, not in the properties inspector. Give controls their own space with a top divider and 12px gaps; collapse to a single column on narrow screens with 44px touch targets. The shared playhead lives on the ruler and repeats as short lines inside lanes. Each lane retains its own last-selected charcoal marker. Never draw a continuous playhead through expanded controls. Click positions use the bounds of the lane's time area, excluding its label.

@@ -1,3 +1,4 @@
+import {requestGroqKey} from './ai-key.mjs';
 export async function transcribeAudio(audio,{key=process.env.GROQ_API_KEY,fetchImpl=fetch}={}){
  if(!key)throw new Error('Add GROQ_API_KEY to enable speech captions.');
  const form=new FormData();form.append('file',new Blob([audio],{type:'audio/wav'}),'speech.wav');form.append('model','whisper-large-v3-turbo');form.append('response_format','verbose_json');form.append('timestamp_granularities[]','segment');
@@ -11,5 +12,5 @@ export function captionMiddleware(req,res){
  if(req.method!=='POST'){res.statusCode=405;res.end(JSON.stringify({error:'POST required'}));return}
  if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host){res.statusCode=403;res.end(JSON.stringify({error:'Origin rejected'}));return}
  if(!req.headers['content-type']?.startsWith('audio/wav')){res.statusCode=400;res.end(JSON.stringify({error:'WAV audio required'}));return}
- const chunks=[];let size=0,tooLarge=false;req.on('data',chunk=>{size+=chunk.length;if(size>24000000){tooLarge=true;chunks.length=0}else if(!tooLarge)chunks.push(chunk)});req.on('end',async()=>{try{if(tooLarge)throw Error('Audio chunk is too large.');if(size<44)throw Error('Audio is empty.');res.end(JSON.stringify(await transcribeAudio(Buffer.concat(chunks))))}catch(e){res.statusCode=400;res.end(JSON.stringify({error:e.message}))}});
+ const chunks=[];let size=0,tooLarge=false;req.on('data',chunk=>{size+=chunk.length;if(size>24000000){tooLarge=true;chunks.length=0}else if(!tooLarge)chunks.push(chunk)});req.on('end',async()=>{try{if(tooLarge)throw Error('Audio chunk is too large.');if(size<44)throw Error('Audio is empty.');res.end(JSON.stringify(await transcribeAudio(Buffer.concat(chunks),{key:requestGroqKey(req)})))}catch(e){res.statusCode=400;res.end(JSON.stringify({error:e.message}))}});
 }
