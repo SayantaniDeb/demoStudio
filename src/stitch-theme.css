@@ -255,3 +255,31 @@ body{background:#f1f1f4}.app{font-family:Geist,sans-serif}.app>main{padding:0 24
  .app.stitch-editor .output-format button{width:40px;height:40px;min-width:40px;min-height:40px}
  .app.stitch-editor .output-format small{font-size:9px}
 }
+
+.caption-audio-source{display:flex!important;flex-direction:column;align-items:stretch!important;gap:6px!important;margin:12px 0;font-size:12px}
+.caption-audio-source select{display:block;width:100%;min-width:0;max-width:100%;padding:9px 10px;border:1px solid #dfe6d5;border-radius:8px;background:#fff;color:#34452c}
+
+.caption-popup{width:min(560px,calc(100vw - 24px));max-height:88dvh;overflow:auto}
+.caption-popup .caption-controls{padding:16px 0;border:0}
+.caption-popup .caption-empty h3{font-size:18px!important;margin:0 0 8px}
+.caption-popup .caption-empty p{line-height:1.6;margin-bottom:16px}
+.caption-popup .caption-generate{width:100%;justify-content:center;min-height:44px!important}
+.caption-popup progress{width:100%;margin-top:12px;accent-color:#799548}
+.caption-segment-list{display:grid;gap:10px;margin:16px 0;max-height:38dvh;overflow:auto}
+.caption-segment-editor{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:6px;padding:10px;border:1px solid #dfe6d5;border-radius:10px;background:#fff}
+.caption-segment-editor.selected{border-color:#799548;box-shadow:inset 0 0 0 1px #799548}
+.caption-segment-time{grid-column:1;text-align:left;font:11px monospace;color:#657456;background:transparent;padding:3px 0}
+.caption-segment-editor textarea{grid-column:1;grid-row:2;width:100%;min-height:60px;resize:vertical;box-sizing:border-box;padding:8px}
+.caption-segment-delete{grid-column:2;grid-row:1/3;align-self:center;background:transparent;min-height:36px;color:#9a5252}
+.app.stitch-editor .editor-caption-clip.timed{box-sizing:border-box;border:1px solid #a7b98d;border-right:3px solid #fff;background:#e8f0da;color:#354d29;min-width:0;padding:0 5px}
+
+/* Prevent mobile focus zoom while keeping pinch zoom available. */
+@media(max-width:767px),(hover:none) and (pointer:coarse){
+ body input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]),
+ body textarea,
+ body select,
+ body [contenteditable=true]{font-size:16px!important;line-height:1.4;max-width:100%;box-sizing:border-box}
+ body button,body a,body summary,body select{touch-action:manipulation}
+ .app .stage-heading>input{min-height:40px}
+ .caption-popup .caption-segment-editor textarea{font-size:16px!important}
+}
