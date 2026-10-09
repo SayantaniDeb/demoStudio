@@ -10,6 +10,7 @@
     "serve": "node server/run.mjs"
   },
   "dependencies": {
+    "@remotion/media": "4.0.534",
     "@remotion/player": "4.0.534",
     "@remotion/web-renderer": "4.0.534",
     "@sparticuz/chromium": "148.0.0",
