@@ -1,4 +1,58 @@
-let active=false,id,last=0,style;
-chrome.runtime.onMessage.addListener(m=>{if(m.type==='frame-track'){active=m.enabled;id=m.id;if(active){style=document.createElement('style');style.textContent='html,html *{cursor:none!important}';(document.head||document.documentElement).append(style)}else style?.remove()}if(m.type==='frame-sample')window.postMessage({source:'frame-companion',...m},location.origin)});
-for(const type of ['pointermove','pointerdown'])addEventListener(type,e=>{if(!active||!e.isTrusted)return;const now=Date.now();if(type==='pointermove'&&now-last<16)return;last=now;chrome.runtime.sendMessage({type:'frame-sample',id,at:now,x:e.clientX/innerWidth,y:e.clientY/innerHeight,click:type==='pointerdown'})},{capture:true,passive:true});
-if(/^http:\/\/(127\.0\.0\.1|localhost):5173$/.test(location.origin))addEventListener('message',e=>{if(e.source!==window||e.origin!==location.origin||e.data?.source!=='frame-pwa')return;const {command,id,request}=e.data;if(!['hello','start','stop'].includes(command))return;chrome.runtime.sendMessage({type:'frame-command',command,id}).then(result=>window.postMessage({source:'frame-companion',request,...result},location.origin)).catch(()=>window.postMessage({source:'frame-companion',request,error:'Extension was reloaded. Refresh this Frame tab to reconnect.'},location.origin))});
+let active = false,
+  id,
+  last = 0,
+  style;
+chrome.runtime.onMessage.addListener((m) => {
+  if (m.type === 'frame-track') {
+    active = m.enabled;
+    id = m.id;
+    if (active) {
+      style = document.createElement('style');
+      style.textContent = 'html,html *{cursor:none!important}';
+      (document.head || document.documentElement).append(style);
+    } else style?.remove();
+  }
+  if (m.type === 'frame-sample')
+    window.postMessage({ source: 'frame-companion', ...m }, location.origin);
+});
+for (const type of ['pointermove', 'pointerdown'])
+  addEventListener(
+    type,
+    (e) => {
+      if (!active || !e.isTrusted) return;
+      const now = Date.now();
+      if (type === 'pointermove' && now - last < 16) return;
+      last = now;
+      chrome.runtime.sendMessage({
+        type: 'frame-sample',
+        id,
+        at: now,
+        x: e.clientX / innerWidth,
+        y: e.clientY / innerHeight,
+        click: type === 'pointerdown',
+      });
+    },
+    { capture: true, passive: true },
+  );
+if (/^http:\/\/(127\.0\.0\.1|localhost):5173$/.test(location.origin))
+  addEventListener('message', (e) => {
+    if (e.source !== window || e.origin !== location.origin || e.data?.source !== 'frame-pwa')
+      return;
+    const { command, id, request } = e.data;
+    if (!['hello', 'start', 'stop'].includes(command)) return;
+    chrome.runtime
+      .sendMessage({ type: 'frame-command', command, id })
+      .then((result) =>
+        window.postMessage({ source: 'frame-companion', request, ...result }, location.origin),
+      )
+      .catch(() =>
+        window.postMessage(
+          {
+            source: 'frame-companion',
+            request,
+            error: 'Extension was reloaded. Refresh this Frame tab to reconnect.',
+          },
+          location.origin,
+        ),
+      );
+  });

@@ -1,6 +1,46 @@
-<!doctype html><html><body><h1>Segment and audio checks</h1><pre id="result">Running…</pre><script type="module">
-import {splitSegments,mapSegments,durationOf} from '/src/demoTimeline.ts';
-import {makeSoundtrack,defaultAudio} from '/src/demoAudio.ts';
-const checks=[];const check=(label,ok)=>{checks.push(`${ok?'PASS':'FAIL'} ${label}`);if(!ok)throw Error(label)};
-try {const source=[{id:'a',start:2,end:8}];const split=splitSegments(source,3);check('split preserves source and duration',split.length===2&&source.length===1&&durationOf(split)===6);const reordered=[split[1],split[0]];check('reorder maps edited time to source',mapSegments(reordered,0).time===5&&mapSegments(reordered,4).time===3);check('boundary split is ignored',splitSegments(source,0)===source);const mix=await makeSoundtrack(2,[0,1],undefined,defaultAudio);check('transition effects contain audio',mix.getChannelData(0).some(v=>Math.abs(v)>.001));const silent=await makeSoundtrack(2,[0,1],undefined,{...defaultAudio,effects:false});check('disabled effects are silent',silent.getChannelData(0).every(v=>v===0));document.querySelector('#result').textContent=checks.join('\n');}catch(e){document.querySelector('#result').textContent=checks.join('\n')+'\nFAIL '+e.message}
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <h1>Segment and audio checks</h1>
+    <pre id="result">Running…</pre>
+    <script type="module">
+      import { splitSegments, mapSegments, durationOf } from '/src/demoTimeline.ts';
+      import { makeSoundtrack, defaultAudio } from '/src/demoAudio.ts';
+      const checks = [];
+      const check = (label, ok) => {
+        checks.push(`${ok ? 'PASS' : 'FAIL'} ${label}`);
+        if (!ok) throw Error(label);
+      };
+      try {
+        const source = [{ id: 'a', start: 2, end: 8 }];
+        const split = splitSegments(source, 3);
+        check(
+          'split preserves source and duration',
+          split.length === 2 && source.length === 1 && durationOf(split) === 6,
+        );
+        const reordered = [split[1], split[0]];
+        check(
+          'reorder maps edited time to source',
+          mapSegments(reordered, 0).time === 5 && mapSegments(reordered, 4).time === 3,
+        );
+        check('boundary split is ignored', splitSegments(source, 0) === source);
+        const mix = await makeSoundtrack(2, [0, 1], undefined, defaultAudio);
+        check(
+          'transition effects contain audio',
+          mix.getChannelData(0).some((v) => Math.abs(v) > 0.001),
+        );
+        const silent = await makeSoundtrack(2, [0, 1], undefined, {
+          ...defaultAudio,
+          effects: false,
+        });
+        check(
+          'disabled effects are silent',
+          silent.getChannelData(0).every((v) => v === 0),
+        );
+        document.querySelector('#result').textContent = checks.join('\n');
+      } catch (e) {
+        document.querySelector('#result').textContent = checks.join('\n') + '\nFAIL ' + e.message;
+      }
+    </script>
+  </body>
+</html>

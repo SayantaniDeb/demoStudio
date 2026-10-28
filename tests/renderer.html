@@ -1,6 +1,101 @@
-<!doctype html><html><body><h1>Storyboard renderer check</h1><button id="run">Run renderer checks</button><pre id="result">Ready</pre><canvas width="1280" height="720"></canvas><script type="module">
-import {renderStoryboard,prepareStoryImages,storyDuration,storyChapters} from '/src/storyboard.ts';
-const component={kind:'card',text:'',x:100,y:100,width:400,height:200,fill:'#ff4455',color:'#ffffff',fontSize:36,radius:16,delay:0,enter:'slide',values:[],binding:'none'};
-const story={model:'test fixture',scenes:[0,1,2].map((i)=>({title:'Scene '+i,duration:4,background:'#122233',gradient:'#122233',zoom:1.2,focusX:640,focusY:360,pointerX:900,pointerY:550,components:[{...component,fill:['#ff4455','#44ff55','#4455ff'][i]}]}))};
-document.querySelector('button').onclick=async()=>{try{const ctx=document.querySelector('canvas').getContext('2d'),copy={brand:'Test',query:'Test',filename:'Test',headline:'Test',pointer:'none',size:28};const pixel=()=>Array.from(ctx.getImageData(250,200,1,1).data).slice(0,3).join(',');renderStoryboard(ctx,.01,copy,story);const initial=pixel();renderStoryboard(ctx,1,copy,story);const entered=pixel();renderStoryboard(ctx,5,copy,story);const next=pixel();if(initial===entered||entered===next)throw Error('Animation/scene pixels did not change');if(storyDuration(story)!==12||storyChapters(story)[2].time!==8)throw Error('Timeline mismatch');story.assets=['data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#22ee55"/></svg>')];await prepareStoryImages(story);for(const kind of ['image','text','button','input','badge','circle','progress','bars']){story.scenes[2].components=[{...component,kind,text:'Readable component',values:[.3,.7]}];renderStoryboard(ctx,9,copy,story)}document.querySelector('#result').textContent='PASS: entrance animation, scene transitions, image decoding, eight component types and dynamic timeline';}catch(e){document.querySelector('#result').textContent='FAIL: '+e.message}}
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <h1>Storyboard renderer check</h1>
+    <button id="run">Run renderer checks</button>
+    <pre id="result">Ready</pre>
+    <canvas width="1280" height="720"></canvas>
+    <script type="module">
+      import {
+        renderStoryboard,
+        prepareStoryImages,
+        storyDuration,
+        storyChapters,
+      } from '/src/storyboard.ts';
+      const component = {
+        kind: 'card',
+        text: '',
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 200,
+        fill: '#ff4455',
+        color: '#ffffff',
+        fontSize: 36,
+        radius: 16,
+        delay: 0,
+        enter: 'slide',
+        values: [],
+        binding: 'none',
+      };
+      const story = {
+        model: 'test fixture',
+        scenes: [0, 1, 2].map((i) => ({
+          title: 'Scene ' + i,
+          duration: 4,
+          background: '#122233',
+          gradient: '#122233',
+          zoom: 1.2,
+          focusX: 640,
+          focusY: 360,
+          pointerX: 900,
+          pointerY: 550,
+          components: [{ ...component, fill: ['#ff4455', '#44ff55', '#4455ff'][i] }],
+        })),
+      };
+      document.querySelector('button').onclick = async () => {
+        try {
+          const ctx = document.querySelector('canvas').getContext('2d'),
+            copy = {
+              brand: 'Test',
+              query: 'Test',
+              filename: 'Test',
+              headline: 'Test',
+              pointer: 'none',
+              size: 28,
+            };
+          const pixel = () =>
+            Array.from(ctx.getImageData(250, 200, 1, 1).data)
+              .slice(0, 3)
+              .join(',');
+          renderStoryboard(ctx, 0.01, copy, story);
+          const initial = pixel();
+          renderStoryboard(ctx, 1, copy, story);
+          const entered = pixel();
+          renderStoryboard(ctx, 5, copy, story);
+          const next = pixel();
+          if (initial === entered || entered === next)
+            throw Error('Animation/scene pixels did not change');
+          if (storyDuration(story) !== 12 || storyChapters(story)[2].time !== 8)
+            throw Error('Timeline mismatch');
+          story.assets = [
+            'data:image/svg+xml,' +
+              encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#22ee55"/></svg>',
+              ),
+          ];
+          await prepareStoryImages(story);
+          for (const kind of [
+            'image',
+            'text',
+            'button',
+            'input',
+            'badge',
+            'circle',
+            'progress',
+            'bars',
+          ]) {
+            story.scenes[2].components = [
+              { ...component, kind, text: 'Readable component', values: [0.3, 0.7] },
+            ];
+            renderStoryboard(ctx, 9, copy, story);
+          }
+          document.querySelector('#result').textContent =
+            'PASS: entrance animation, scene transitions, image decoding, eight component types and dynamic timeline';
+        } catch (e) {
+          document.querySelector('#result').textContent = 'FAIL: ' + e.message;
+        }
+      };
+    </script>
+  </body>
+</html>

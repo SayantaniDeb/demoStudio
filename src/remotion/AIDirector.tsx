@@ -1,61 +1,851 @@
-import {EmptyStudioCanvas} from '../components/EmptyStudioCanvas';
-import {EmptyStudioTimeline} from '../components/EmptyStudioTimeline';
-import {ExportDialog} from '../components/ExportDialog';
-import {cleanIcon} from './iconCleanup';
-import {ChevronRight,LoaderCircle,Trash2,Upload,Layers,Monitor,Smartphone,Sparkles,Download,RotateCw} from 'lucide-react';
-import {useEffect,useRef,useState} from 'react';
-import {DirectorTimeline,type DirectorMusic} from './DirectorTimeline';
-import {Player,type PlayerRef} from '@remotion/player';
-import {groqHeaders} from '../aiKey';
+import { EmptyStudioCanvas } from '../components/EmptyStudioCanvas';
+import { EmptyStudioTimeline } from '../components/EmptyStudioTimeline';
+import { ExportDialog } from '../components/ExportDialog';
+import { cleanIcon } from './iconCleanup';
+import {
+  ChevronRight,
+  LoaderCircle,
+  Trash2,
+  Upload,
+  Layers,
+  Monitor,
+  Smartphone,
+  Sparkles,
+  Download,
+  RotateCw,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { DirectorTimeline, type DirectorMusic } from './DirectorTimeline';
+import { Player, type PlayerRef } from '@remotion/player';
+import { groqHeaders } from '../aiKey';
 
-import {creativeDuration,type CreativeAnimation} from '../creative';
-import {validateCreative} from '../../shared/creative.mjs';
-import {deleteAsset,loadAsset,storeAsset} from '../storage';
-import {DirectorComposition} from './DirectorComposition';
-import {restyleStoryboard} from '../../shared/directorStoryboard.mjs';
-import {sampleVideo} from './directorSource';
+import { creativeDuration, type CreativeAnimation } from '../creative';
+import { validateCreative } from '../../shared/creative.mjs';
+import { deleteAsset, loadAsset, storeAsset } from '../storage';
+import { DirectorComposition } from './DirectorComposition';
+import { restyleStoryboard } from '../../shared/directorStoryboard.mjs';
+import { sampleVideo } from './directorSource';
 import './director.css';
-type Project={plan:CreativeAnimation;assets:string[];summary:string;uncertainties:string[];brandIconAsset?:number;iconCleanupVersion?:number;music?:DirectorMusic;creativeDirection?:{style?:string;energy?:string}};
-export default function AIDirector({source,website,onExportState}:{source:string;website:boolean;onExportState?:(state:{run:()=>Promise<void>;disabled:boolean;busy:boolean}|null)=>void}){
- const [url,setUrl]=useState(''),[brief,setBrief]=useState('Create a creative product demo with minimal text.'),[project,setProject]=useState<Project|null>(null),[status,setStatus]=useState(''),[busy,setBusy]=useState(false),[progress,setProgress]=useState<number|null>(null),[result,setResult]=useState<{url:string;name:string}|null>(null);
- const [creating,setCreating]=useState(false);
- const [mobileSetupOpen,setMobileSetupOpen]=useState(false);
- const [durationSeconds,setDurationSeconds]=useState(30);
- const [format,setFormat]=useState<'desktop'|'mobile'>('desktop');
- const [selectedScene,setSelectedScene]=useState(0),[pointerMode,setPointerMode]=useState<'place'|'draw'|null>(null),[pointerSize,setPointerSize]=useState(38);
- const pointerStart=useRef<{x:number;y:number}|null>(null);
- const width=format==='mobile'?720:1280,height=format==='mobile'?1280:720;
- const controller=useRef<AbortController|null>(null),player=useRef<PlayerRef>(null),output=useRef<string|null>(null),revision=useRef(0);
- useEffect(()=>{let alive=true;const version=revision.current;loadAsset('director-project').then(async blob=>{if(!blob)return;const saved=JSON.parse(await blob.text());const plan=validateCreative(saved.plan);if(alive&&version===revision.current&&Array.isArray(saved.assets)){setProject({...saved,plan})}}).catch(()=>{});return()=>{alive=false;controller.current?.abort();if(output.current)URL.revokeObjectURL(output.current)}},[]);
- useEffect(()=>{const asset=project?.brandIconAsset;if(!project||asset===undefined||project.iconCleanupVersion===1||!project.assets[asset])return;let alive=true;const source=project.assets[asset];cleanIcon(source).then(cleaned=>{if(!alive)return;setProject(current=>{if(!current||current.assets[asset]!==source)return current;const assets=[...current.assets];assets[asset]=cleaned;const next={...current,assets,iconCleanupVersion:1};void storeAsset('director-project',new Blob([JSON.stringify(next)])).catch(()=>setStatus('Icon cleaned, but could not be saved locally.'));return next})}).catch(()=>{});return()=>{alive=false}},[project?.brandIconAsset,project?.iconCleanupVersion,project?.assets[project?.brandIconAsset??-1]]);
- async function deleteVideo(){if(busy)return;revision.current++;setBusy(true);player.current?.pause();try{await deleteAsset('director-project');setProject(null);setSelectedScene(0);setPointerMode(null);pointerStart.current=null;setProgress(null);if(output.current){URL.revokeObjectURL(output.current);output.current=null}setResult(null);setStatus('Video deleted. Ready to create a new animation.')}catch{setStatus('Could not delete the saved video. Please try again.')}finally{setBusy(false)}}
- function change(plan:CreativeAnimation){revision.current++;const next=project?{...project,plan}:null;setProject(next);if(next)void storeAsset('director-project',new Blob([JSON.stringify(next)])).catch(()=>setStatus('Edits could not be saved. Browser storage may be full.'))}
- function addPointer(start:{x:number;y:number},end=start){if(!project)return;const index=Math.min(selectedScene,project.plan.scenes.length-1),scene=project.plan.scenes[index];const pose=(time:number,p:{x:number;y:number})=>({time,...p,scale:pointerSize/48,opacity:1,rotation:0});change(validateCreative({...project.plan,scenes:project.plan.scenes.map((s,i)=>i===index?{...s,components:[...s.components.filter(c=>c.name!=='User pointer'),{name:'User pointer',keyframes:[pose(0,start),pose(scene.duration,end)],elements:[{kind:'path',x:0,y:0,width:48,height:48,fill:'#ffffff',stroke:'#23352b',strokeWidth:2,path:'M 0 0 L 10 42 L 19 29 L 31 42 L 39 35 L 26 22 L 43 18 Z'}]}]}:s)}));setPointerMode(null);setStatus('Pointer saved to this scene. Preview and export include your pointer.');}
- async function generate(){if(controller.current)return;setCreating(true);revision.current++;const abort=new AbortController();controller.current=abort;setBusy(true);setStatus(website?'Reading website content and screenshots…':'Sampling your video…');
- try{let images:string[],evidence:unknown,brandIconAsset=-1;
- if(website){const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error('Enter a public website URL.');const response=await fetch('/api/website-demo',{method:'POST',signal:abort.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({url,ai:false})});const data=await response.json();if(!response.ok)throw Error(data.error||'Website import failed.');images=(data.motion?.assets||[]).slice(0,2);if(typeof data.brandIcon==='string'&&data.brandIcon.startsWith('data:image/png;base64,')){brandIconAsset=images.length;images.push(await cleanIcon(data.brandIcon))}evidence={type:'website',url:data.url,brand:data.brand,title:data.title,description:data.description,cta:data.cta,accent:data.accent,sections:data.sections};
- }else{if(!source)throw Error('Record or import a video first.');({images,evidence}=await sampleVideo(source,abort.signal))}
- setStatus('Understanding the source and directing the scenes…');const response=await fetch('/api/animation-director',{method:'POST',signal:abort.signal,headers:{'Content-Type':'application/json',...groqHeaders()},body:JSON.stringify({assetCount:images.length,brandIconAsset,evidence,brief,durationSeconds})});const data=await response.json();if(!response.ok)throw Error(data.error||'AI director failed.');const plan=validateCreative(data.plan);const next={plan,assets:images,brandIconAsset,iconCleanupVersion:1,creativeDirection:data.creativeDirection,summary:String(data.analysis.summary||''),uncertainties:Array.isArray(data.analysis.uncertainties)?data.analysis.uncertainties.map(String):[]};abort.signal.throwIfAborted();setProject(next);setStatus('Your scene plan is ready. Review it, edit the components, then export.');try{await storeAsset('director-project',new Blob([JSON.stringify(next)]))}catch{setStatus('Scene plan ready, but local storage is full. Export before leaving.')}
- }catch(e){setStatus(abort.signal.aborted?'Generation cancelled.':e instanceof Error?e.message:'Could not direct this animation.')}finally{controller.current=null;setBusy(false);setCreating(false)}
- }
- async function exportFilm(){if(!project||controller.current)return;const abort=new AbortController();controller.current=abort;setBusy(true);setResult(null);setProgress(0);setStatus('Rendering your directed animation…');player.current?.pause();
- try{const plan=validateCreative(project.plan),props={plan,assets:project.assets,format,music:project.music};const {renderMediaOnWeb,canRenderMediaOnWeb}=await import('@remotion/web-renderer');const options={width,height,container:'mp4' as const,videoCodec:'h264' as const,muted:!project.music,outputTarget:'arraybuffer' as const};const support=await canRenderMediaOnWeb(options);if(!support.canRender)throw Error(support.issues.map(i=>i.message).join(' '));const render=await renderMediaOnWeb({...options,composition:{id:'directed-film',component:DirectorComposition,defaultProps:props,width,height,fps:30,durationInFrames:Math.ceil(creativeDuration(plan)*30)},inputProps:props,signal:abort.signal,onProgress:({progress})=>setProgress(Math.round(progress*100))});const blob=await render.getBlob();abort.signal.throwIfAborted();if(output.current)URL.revokeObjectURL(output.current);output.current=URL.createObjectURL(blob);setResult({url:output.current,name:`frame-directed-${format}.mp4`});setStatus('Your Remotion video is ready.');
- }catch(e){setStatus(abort.signal.aborted?'Export cancelled.':e instanceof Error?e.message:'Export failed.')}finally{controller.current=null;setBusy(false);setProgress(null)}
- }
- useEffect(()=>{onExportState?.({run:exportFilm,disabled:!project||busy||Boolean(project.music?.builtin&&project.music.timing!==project.plan.scenes.map(s=>s.duration).join(',')),busy:progress!==null})},[project,busy,format,onExportState]);
- useEffect(()=>()=>onExportState?.(null),[onExportState]);
- return <section className="ai-director" aria-label="Remotion video studio"><ExportDialog rendering={progress!==null} progress={progress||0} result={result} onCancel={()=>controller.current?.abort()}/>{creating&&<CreationLoading status={status} onCancel={()=>controller.current?.abort()}/>}<div className="director-body director-workspace-layout"><aside className={`director-setup-sidebar ${mobileSetupOpen?'mobile-setup-open':'mobile-setup-closed'}`} aria-label="Website video setup"><div className="director-heading director-compact-heading"><div className="director-setup-title desktop-setup-title"><span className="director-heading-icon"><Layers size={20}/></span><div><span className="director-eyebrow">ANIMATION STUDIO</span><h1>Website Link to Video</h1></div></div><button type="button" className="director-mobile-setup-toggle" aria-expanded={mobileSetupOpen} aria-controls="director-setup-fields" onClick={()=>setMobileSetupOpen(!mobileSetupOpen)}><span className="director-heading-icon"><Layers size={17}/></span><span>Website Link to Video</span><ChevronRight size={16}/></button><label className="director-duration-badge"><select aria-label="Video duration" value={durationSeconds} disabled={busy} onChange={e=>setDurationSeconds(Number(e.target.value))}>{[5,10,15,20,25,30].map(seconds=><option key={seconds} value={seconds}>{seconds} sec</option>)}</select></label></div><div className="director-setup" id="director-setup-fields"><p>Turn your website into a story worth sharing.</p>{website&&<label>Website URL<input type="url" placeholder="https://your-website.com" value={url} disabled={busy} onChange={e=>setUrl(e.target.value)}/></label>}<label>Creative direction<textarea maxLength={1500} value={brief} disabled={busy} onChange={e=>setBrief(e.target.value)}/></label><small className="director-privacy-note">Media stays on your device. Only a short text brief is sent to Groq.</small><div className="director-actions"><button className="button lime" disabled={busy||(!website&&!source)||website&&!url} onClick={()=>void generate()}><Sparkles size={16}/>Create animation</button>{busy&&<button className="button quiet" onClick={()=>controller.current?.abort()}>Cancel</button>}</div></div></aside><div className="director-workspace-main">{status&&<p className="director-status" role="status">{status}</p>}{progress!==null&&<progress value={progress} max={100} aria-label="Director export progress"/>}{!project&&<><section className="shared-empty-preview" aria-label="Empty video preview"><div className={`stage studio-preview-stage ${format==='mobile'?'stage-portrait':'stage-landscape'}`} style={{aspectRatio:format==='mobile'?'9 / 16':'16 / 9'}}><div className="video-frame"><EmptyStudioCanvas onStart={()=>{setMobileSetupOpen(true)}}/></div></div><div className="transport"><span>00:00 / 00:00</span></div></section><EmptyStudioTimeline website onStart={()=>{setMobileSetupOpen(true)}}/></>}{project&&<><div className="director-format-bar"><span>Preview</span><button type="button" className="button quiet director-delete-video" disabled={busy} onClick={()=>void deleteVideo()}><Trash2 size={15}/>Delete video</button><div role="group" aria-label="Animation format"><button className="button quiet" aria-pressed={format==='desktop'} disabled={busy} onClick={()=>setFormat('desktop')}><Monitor size={15}/>Desktop <small>16:9</small></button><button className="button quiet" aria-pressed={format==='mobile'} disabled={busy} onClick={()=>setFormat('mobile')}><Smartphone size={15}/>Mobile <small>9:16</small></button></div></div><div className={`director-preview ${pointerMode?'placing-pointer':''}`} style={{width:'100%'}} onPointerDownCapture={e=>{if(!pointerMode||busy)return;e.preventDefault();e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);const r=(e.currentTarget.querySelector(':scope > div')||e.currentTarget).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;pointerStart.current={x:Math.max(0,Math.min(1240,(e.clientX-r.left)/r.width*1280)),y:Math.max(0,Math.min(680,(e.clientY-r.top)/r.height*720))}}} onPointerUpCapture={e=>{if(!pointerMode||!pointerStart.current)return;e.preventDefault();e.stopPropagation();const r=(e.currentTarget.querySelector(':scope > div')||e.currentTarget).getBoundingClientRect(),end={x:Math.max(0,Math.min(1240,(e.clientX-r.left)/r.width*1280)),y:Math.max(0,Math.min(680,(e.clientY-r.top)/r.height*720))};addPointer(pointerStart.current,pointerMode==='draw'?end:pointerStart.current);pointerStart.current=null;}}><Player ref={player} component={DirectorComposition} inputProps={{plan:project.plan,assets:project.assets,format,music:project.music}} durationInFrames={Math.ceil(creativeDuration(project.plan)*30)} fps={30} compositionWidth={width} compositionHeight={height} controls={false} clickToPlay={false} doubleClickToFullscreen={false} style={{width:format==='mobile'?'min(100cqw, 100cqh * 9 / 16)':'min(100cqw, 100cqh * 16 / 9)',height:format==='mobile'?'min(100cqh, 100cqw * 16 / 9)':'min(100cqh, 100cqw * 9 / 16)',aspectRatio:format==='mobile'?'9 / 16':'16 / 9'}}/></div><DirectorTimeline renderImages={componentIndex=><SceneImages project={project} sceneIndex={Math.min(selectedScene,project.plan.scenes.length-1)} componentIndex={componentIndex} disabled={busy} onSave={next=>{revision.current++;setProject(next);void storeAsset('director-project',new Blob([JSON.stringify(next)])).catch(()=>setStatus('Picture updated, but browser storage is full.'))}}/>} plan={project.plan} change={change} music={project.music} setMusic={music=>{const next={...project,music};revision.current++;setProject(next);void storeAsset('director-project',new Blob([JSON.stringify(next)])).catch(()=>setStatus('Music changed, but could not be saved locally.'))}} player={player} disabled={busy} selected={Math.min(selectedScene,project.plan.scenes.length-1)} select={setSelectedScene} mode={pointerMode} setMode={setPointerMode} size={pointerSize} setSize={setPointerSize} remove={()=>{change({...project.plan,scenes:project.plan.scenes.map((s,i)=>i===selectedScene?{...s,components:s.components.filter(c=>c.name!=='User pointer')}:s)});setPointerMode(null)}}/>{project.uncertainties.length>0&&<details><summary>Source limitations</summary><ul>{project.uncertainties.map((s,i)=><li key={i}>{s}</li>)}</ul></details>}<div className="director-restyle"><button className="button quiet" disabled={busy} onClick={()=>{const styles=['sage','ocean','sunset','violet','mono'],style=styles[(styles.indexOf(project.creativeDirection?.style||'sage')+1)%styles.length];const plan=restyleStoryboard(project.plan,project.assets.length,project.brandIconAsset??-1,{style,energy:project.creativeDirection?.energy,seed:Math.floor(Math.random()*100000)});const next={...project,plan,creativeDirection:{...project.creativeDirection,style}};revision.current++;setProject(next);void storeAsset('director-project',new Blob([JSON.stringify(next)])).catch(()=>setStatus('Visuals changed, but could not be saved locally.'));setStatus('Visuals restyled. Scene timing, captions, pointers and music kept. No AI request used.')}}><RotateCw size={15}/>Restyle visuals</button><small>Try a different palette and layout. Keeps timing, captions, pointers and music.</small></div></>}</div></div></section>
+type Project = {
+  plan: CreativeAnimation;
+  assets: string[];
+  summary: string;
+  uncertainties: string[];
+  brandIconAsset?: number;
+  iconCleanupVersion?: number;
+  music?: DirectorMusic;
+  creativeDirection?: { style?: string; energy?: string };
+};
+export default function AIDirector({
+  source,
+  website,
+  onExportState,
+}: {
+  source: string;
+  website: boolean;
+  onExportState?: (
+    state: { run: () => Promise<void>; disabled: boolean; busy: boolean } | null,
+  ) => void;
+}) {
+  const [url, setUrl] = useState(''),
+    [brief, setBrief] = useState('Create a creative product demo with minimal text.'),
+    [project, setProject] = useState<Project | null>(null),
+    [status, setStatus] = useState(''),
+    [busy, setBusy] = useState(false),
+    [progress, setProgress] = useState<number | null>(null),
+    [result, setResult] = useState<{ url: string; name: string } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [mobileSetupOpen, setMobileSetupOpen] = useState(false);
+  const [durationSeconds, setDurationSeconds] = useState(30);
+  const [format, setFormat] = useState<'desktop' | 'mobile'>('desktop');
+  const [selectedScene, setSelectedScene] = useState(0),
+    [pointerMode, setPointerMode] = useState<'place' | 'draw' | null>(null),
+    [pointerSize, setPointerSize] = useState(38);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const width = format === 'mobile' ? 720 : 1280,
+    height = format === 'mobile' ? 1280 : 720;
+  const controller = useRef<AbortController | null>(null),
+    player = useRef<PlayerRef>(null),
+    output = useRef<string | null>(null),
+    revision = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    const version = revision.current;
+    loadAsset('director-project')
+      .then(async (blob) => {
+        if (!blob) return;
+        const saved = JSON.parse(await blob.text());
+        const plan = validateCreative(saved.plan);
+        if (alive && version === revision.current && Array.isArray(saved.assets)) {
+          setProject({ ...saved, plan });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      controller.current?.abort();
+      if (output.current) URL.revokeObjectURL(output.current);
+    };
+  }, []);
+  useEffect(() => {
+    const asset = project?.brandIconAsset;
+    if (
+      !project ||
+      asset === undefined ||
+      project.iconCleanupVersion === 1 ||
+      !project.assets[asset]
+    )
+      return;
+    let alive = true;
+    const source = project.assets[asset];
+    cleanIcon(source)
+      .then((cleaned) => {
+        if (!alive) return;
+        setProject((current) => {
+          if (!current || current.assets[asset] !== source) return current;
+          const assets = [...current.assets];
+          assets[asset] = cleaned;
+          const next = { ...current, assets, iconCleanupVersion: 1 };
+          void storeAsset('director-project', new Blob([JSON.stringify(next)])).catch(() =>
+            setStatus('Icon cleaned, but could not be saved locally.'),
+          );
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [
+    project?.brandIconAsset,
+    project?.iconCleanupVersion,
+    project?.assets[project?.brandIconAsset ?? -1],
+  ]);
+  async function deleteVideo() {
+    if (busy) return;
+    revision.current++;
+    setBusy(true);
+    player.current?.pause();
+    try {
+      await deleteAsset('director-project');
+      setProject(null);
+      setSelectedScene(0);
+      setPointerMode(null);
+      pointerStart.current = null;
+      setProgress(null);
+      if (output.current) {
+        URL.revokeObjectURL(output.current);
+        output.current = null;
+      }
+      setResult(null);
+      setStatus('Video deleted. Ready to create a new animation.');
+    } catch {
+      setStatus('Could not delete the saved video. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  function change(plan: CreativeAnimation) {
+    revision.current++;
+    const next = project ? { ...project, plan } : null;
+    setProject(next);
+    if (next)
+      void storeAsset('director-project', new Blob([JSON.stringify(next)])).catch(() =>
+        setStatus('Edits could not be saved. Browser storage may be full.'),
+      );
+  }
+  function addPointer(start: { x: number; y: number }, end = start) {
+    if (!project) return;
+    const index = Math.min(selectedScene, project.plan.scenes.length - 1),
+      scene = project.plan.scenes[index];
+    const pose = (time: number, p: { x: number; y: number }) => ({
+      time,
+      ...p,
+      scale: pointerSize / 48,
+      opacity: 1,
+      rotation: 0,
+    });
+    change(
+      validateCreative({
+        ...project.plan,
+        scenes: project.plan.scenes.map((s, i) =>
+          i === index
+            ? {
+                ...s,
+                components: [
+                  ...s.components.filter((c) => c.name !== 'User pointer'),
+                  {
+                    name: 'User pointer',
+                    keyframes: [pose(0, start), pose(scene.duration, end)],
+                    elements: [
+                      {
+                        kind: 'path',
+                        x: 0,
+                        y: 0,
+                        width: 48,
+                        height: 48,
+                        fill: '#ffffff',
+                        stroke: '#23352b',
+                        strokeWidth: 2,
+                        path: 'M 0 0 L 10 42 L 19 29 L 31 42 L 39 35 L 26 22 L 43 18 Z',
+                      },
+                    ],
+                  },
+                ],
+              }
+            : s,
+        ),
+      }),
+    );
+    setPointerMode(null);
+    setStatus('Pointer saved to this scene. Preview and export include your pointer.');
+  }
+  async function generate() {
+    if (controller.current) return;
+    setCreating(true);
+    revision.current++;
+    const abort = new AbortController();
+    controller.current = abort;
+    setBusy(true);
+    setStatus(website ? 'Reading website content and screenshots…' : 'Sampling your video…');
+    try {
+      let images: string[],
+        evidence: unknown,
+        brandIconAsset = -1;
+      if (website) {
+        const parsed = new URL(url);
+        if (!['https:', 'http:'].includes(parsed.protocol))
+          throw Error('Enter a public website URL.');
+        const response = await fetch('/api/website-demo', {
+          method: 'POST',
+          signal: abort.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, ai: false }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || 'Website import failed.');
+        images = (data.motion?.assets || []).slice(0, 2);
+        if (
+          typeof data.brandIcon === 'string' &&
+          data.brandIcon.startsWith('data:image/png;base64,')
+        ) {
+          brandIconAsset = images.length;
+          images.push(await cleanIcon(data.brandIcon));
+        }
+        evidence = {
+          type: 'website',
+          url: data.url,
+          brand: data.brand,
+          title: data.title,
+          description: data.description,
+          cta: data.cta,
+          accent: data.accent,
+          sections: data.sections,
+        };
+      } else {
+        if (!source) throw Error('Record or import a video first.');
+        ({ images, evidence } = await sampleVideo(source, abort.signal));
+      }
+      setStatus('Understanding the source and directing the scenes…');
+      const response = await fetch('/api/animation-director', {
+        method: 'POST',
+        signal: abort.signal,
+        headers: { 'Content-Type': 'application/json', ...groqHeaders() },
+        body: JSON.stringify({
+          assetCount: images.length,
+          brandIconAsset,
+          evidence,
+          brief,
+          durationSeconds,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || 'AI director failed.');
+      const plan = validateCreative(data.plan);
+      const next = {
+        plan,
+        assets: images,
+        brandIconAsset,
+        iconCleanupVersion: 1,
+        creativeDirection: data.creativeDirection,
+        summary: String(data.analysis.summary || ''),
+        uncertainties: Array.isArray(data.analysis.uncertainties)
+          ? data.analysis.uncertainties.map(String)
+          : [],
+      };
+      abort.signal.throwIfAborted();
+      setProject(next);
+      setStatus('Your scene plan is ready. Review it, edit the components, then export.');
+      try {
+        await storeAsset('director-project', new Blob([JSON.stringify(next)]));
+      } catch {
+        setStatus('Scene plan ready, but local storage is full. Export before leaving.');
+      }
+    } catch (e) {
+      setStatus(
+        abort.signal.aborted
+          ? 'Generation cancelled.'
+          : e instanceof Error
+            ? e.message
+            : 'Could not direct this animation.',
+      );
+    } finally {
+      controller.current = null;
+      setBusy(false);
+      setCreating(false);
+    }
+  }
+  async function exportFilm() {
+    if (!project || controller.current) return;
+    const abort = new AbortController();
+    controller.current = abort;
+    setBusy(true);
+    setResult(null);
+    setProgress(0);
+    setStatus('Rendering your directed animation…');
+    player.current?.pause();
+    try {
+      const plan = validateCreative(project.plan),
+        props = { plan, assets: project.assets, format, music: project.music };
+      const { renderMediaOnWeb, canRenderMediaOnWeb } = await import('@remotion/web-renderer');
+      const options = {
+        width,
+        height,
+        container: 'mp4' as const,
+        videoCodec: 'h264' as const,
+        muted: !project.music,
+        outputTarget: 'arraybuffer' as const,
+      };
+      const support = await canRenderMediaOnWeb(options);
+      if (!support.canRender) throw Error(support.issues.map((i) => i.message).join(' '));
+      const render = await renderMediaOnWeb({
+        ...options,
+        composition: {
+          id: 'directed-film',
+          component: DirectorComposition,
+          defaultProps: props,
+          width,
+          height,
+          fps: 30,
+          durationInFrames: Math.ceil(creativeDuration(plan) * 30),
+        },
+        inputProps: props,
+        signal: abort.signal,
+        onProgress: ({ progress }) => setProgress(Math.round(progress * 100)),
+      });
+      const blob = await render.getBlob();
+      abort.signal.throwIfAborted();
+      if (output.current) URL.revokeObjectURL(output.current);
+      output.current = URL.createObjectURL(blob);
+      setResult({ url: output.current, name: `frame-directed-${format}.mp4` });
+      setStatus('Your Remotion video is ready.');
+    } catch (e) {
+      setStatus(
+        abort.signal.aborted
+          ? 'Export cancelled.'
+          : e instanceof Error
+            ? e.message
+            : 'Export failed.',
+      );
+    } finally {
+      controller.current = null;
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+  useEffect(() => {
+    onExportState?.({
+      run: exportFilm,
+      disabled:
+        !project ||
+        busy ||
+        Boolean(
+          project.music?.builtin &&
+          project.music.timing !== project.plan.scenes.map((s) => s.duration).join(','),
+        ),
+      busy: progress !== null,
+    });
+  }, [project, busy, format, onExportState]);
+  useEffect(() => () => onExportState?.(null), [onExportState]);
+  return (
+    <section className="ai-director" aria-label="Remotion video studio">
+      <ExportDialog
+        rendering={progress !== null}
+        progress={progress || 0}
+        result={result}
+        onCancel={() => controller.current?.abort()}
+      />
+      {creating && <CreationLoading status={status} onCancel={() => controller.current?.abort()} />}
+      <div className="director-body director-workspace-layout">
+        <aside
+          className={`director-setup-sidebar ${mobileSetupOpen ? 'mobile-setup-open' : 'mobile-setup-closed'}`}
+          aria-label="Website video setup"
+        >
+          <div className="director-heading director-compact-heading">
+            <div className="director-setup-title desktop-setup-title">
+              <span className="director-heading-icon">
+                <Layers size={20} />
+              </span>
+              <div>
+                <span className="director-eyebrow">ANIMATION STUDIO</span>
+                <h1>Website Link to Video</h1>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="director-mobile-setup-toggle"
+              aria-expanded={mobileSetupOpen}
+              aria-controls="director-setup-fields"
+              onClick={() => setMobileSetupOpen(!mobileSetupOpen)}
+            >
+              <span className="director-heading-icon">
+                <Layers size={17} />
+              </span>
+              <span>Website Link to Video</span>
+              <ChevronRight size={16} />
+            </button>
+            <label className="director-duration-badge">
+              <select
+                aria-label="Video duration"
+                value={durationSeconds}
+                disabled={busy}
+                onChange={(e) => setDurationSeconds(Number(e.target.value))}
+              >
+                {[5, 10, 15, 20, 25, 30].map((seconds) => (
+                  <option key={seconds} value={seconds}>
+                    {seconds} sec
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="director-setup" id="director-setup-fields">
+            <p>Turn your website into a story worth sharing.</p>
+            {website && (
+              <label>
+                Website URL
+                <input
+                  type="url"
+                  placeholder="https://your-website.com"
+                  value={url}
+                  disabled={busy}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              </label>
+            )}
+            <label>
+              Creative direction
+              <textarea
+                maxLength={1500}
+                value={brief}
+                disabled={busy}
+                onChange={(e) => setBrief(e.target.value)}
+              />
+            </label>
+            <small className="director-privacy-note">
+              Media stays on your device. Only a short text brief is sent to Groq.
+            </small>
+            <div className="director-actions">
+              <button
+                className="button lime"
+                disabled={busy || (!website && !source) || (website && !url)}
+                onClick={() => void generate()}
+              >
+                <Sparkles size={16} />
+                Create animation
+              </button>
+              {busy && (
+                <button className="button quiet" onClick={() => controller.current?.abort()}>
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
+        <div className="director-workspace-main">
+          {status && (
+            <p className="director-status" role="status">
+              {status}
+            </p>
+          )}
+          {progress !== null && (
+            <progress value={progress} max={100} aria-label="Director export progress" />
+          )}
+          {!project && (
+            <>
+              <section className="shared-empty-preview" aria-label="Empty video preview">
+                <div
+                  className={`stage studio-preview-stage ${format === 'mobile' ? 'stage-portrait' : 'stage-landscape'}`}
+                  style={{ aspectRatio: format === 'mobile' ? '9 / 16' : '16 / 9' }}
+                >
+                  <div className="video-frame">
+                    <EmptyStudioCanvas
+                      onStart={() => {
+                        setMobileSetupOpen(true);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="transport">
+                  <span>00:00 / 00:00</span>
+                </div>
+              </section>
+              <EmptyStudioTimeline
+                website
+                onStart={() => {
+                  setMobileSetupOpen(true);
+                }}
+              />
+            </>
+          )}
+          {project && (
+            <>
+              <div className="director-format-bar">
+                <span>Preview</span>
+                <button
+                  type="button"
+                  className="button quiet director-delete-video"
+                  disabled={busy}
+                  onClick={() => void deleteVideo()}
+                >
+                  <Trash2 size={15} />
+                  Delete video
+                </button>
+                <div role="group" aria-label="Animation format">
+                  <button
+                    className="button quiet"
+                    aria-pressed={format === 'desktop'}
+                    disabled={busy}
+                    onClick={() => setFormat('desktop')}
+                  >
+                    <Monitor size={15} />
+                    Desktop <small>16:9</small>
+                  </button>
+                  <button
+                    className="button quiet"
+                    aria-pressed={format === 'mobile'}
+                    disabled={busy}
+                    onClick={() => setFormat('mobile')}
+                  >
+                    <Smartphone size={15} />
+                    Mobile <small>9:16</small>
+                  </button>
+                </div>
+              </div>
+              <div
+                className={`director-preview ${pointerMode ? 'placing-pointer' : ''}`}
+                style={{ width: '100%' }}
+                onPointerDownCapture={(e) => {
+                  if (!pointerMode || busy) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  const r = (
+                    e.currentTarget.querySelector(':scope > div') || e.currentTarget
+                  ).getBoundingClientRect();
+                  if (
+                    e.clientX < r.left ||
+                    e.clientX > r.right ||
+                    e.clientY < r.top ||
+                    e.clientY > r.bottom
+                  )
+                    return;
+                  pointerStart.current = {
+                    x: Math.max(0, Math.min(1240, ((e.clientX - r.left) / r.width) * 1280)),
+                    y: Math.max(0, Math.min(680, ((e.clientY - r.top) / r.height) * 720)),
+                  };
+                }}
+                onPointerUpCapture={(e) => {
+                  if (!pointerMode || !pointerStart.current) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const r = (
+                      e.currentTarget.querySelector(':scope > div') || e.currentTarget
+                    ).getBoundingClientRect(),
+                    end = {
+                      x: Math.max(0, Math.min(1240, ((e.clientX - r.left) / r.width) * 1280)),
+                      y: Math.max(0, Math.min(680, ((e.clientY - r.top) / r.height) * 720)),
+                    };
+                  addPointer(
+                    pointerStart.current,
+                    pointerMode === 'draw' ? end : pointerStart.current,
+                  );
+                  pointerStart.current = null;
+                }}
+              >
+                <Player
+                  ref={player}
+                  component={DirectorComposition}
+                  inputProps={{
+                    plan: project.plan,
+                    assets: project.assets,
+                    format,
+                    music: project.music,
+                  }}
+                  durationInFrames={Math.ceil(creativeDuration(project.plan) * 30)}
+                  fps={30}
+                  compositionWidth={width}
+                  compositionHeight={height}
+                  controls={false}
+                  clickToPlay={false}
+                  doubleClickToFullscreen={false}
+                  style={{
+                    width:
+                      format === 'mobile'
+                        ? 'min(100cqw, 100cqh * 9 / 16)'
+                        : 'min(100cqw, 100cqh * 16 / 9)',
+                    height:
+                      format === 'mobile'
+                        ? 'min(100cqh, 100cqw * 16 / 9)'
+                        : 'min(100cqh, 100cqw * 9 / 16)',
+                    aspectRatio: format === 'mobile' ? '9 / 16' : '16 / 9',
+                  }}
+                />
+              </div>
+              <DirectorTimeline
+                renderImages={(componentIndex) => (
+                  <SceneImages
+                    project={project}
+                    sceneIndex={Math.min(selectedScene, project.plan.scenes.length - 1)}
+                    componentIndex={componentIndex}
+                    disabled={busy}
+                    onSave={(next) => {
+                      revision.current++;
+                      setProject(next);
+                      void storeAsset('director-project', new Blob([JSON.stringify(next)])).catch(
+                        () => setStatus('Picture updated, but browser storage is full.'),
+                      );
+                    }}
+                  />
+                )}
+                plan={project.plan}
+                change={change}
+                music={project.music}
+                setMusic={(music) => {
+                  const next = { ...project, music };
+                  revision.current++;
+                  setProject(next);
+                  void storeAsset('director-project', new Blob([JSON.stringify(next)])).catch(() =>
+                    setStatus('Music changed, but could not be saved locally.'),
+                  );
+                }}
+                player={player}
+                disabled={busy}
+                selected={Math.min(selectedScene, project.plan.scenes.length - 1)}
+                select={setSelectedScene}
+                mode={pointerMode}
+                setMode={setPointerMode}
+                size={pointerSize}
+                setSize={setPointerSize}
+                remove={() => {
+                  change({
+                    ...project.plan,
+                    scenes: project.plan.scenes.map((s, i) =>
+                      i === selectedScene
+                        ? {
+                            ...s,
+                            components: s.components.filter((c) => c.name !== 'User pointer'),
+                          }
+                        : s,
+                    ),
+                  });
+                  setPointerMode(null);
+                }}
+              />
+              {project.uncertainties.length > 0 && (
+                <details>
+                  <summary>Source limitations</summary>
+                  <ul>
+                    {project.uncertainties.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              <div className="director-restyle">
+                <button
+                  className="button quiet"
+                  disabled={busy}
+                  onClick={() => {
+                    const styles = ['sage', 'ocean', 'sunset', 'violet', 'mono'],
+                      style =
+                        styles[
+                          (styles.indexOf(project.creativeDirection?.style || 'sage') + 1) %
+                            styles.length
+                        ];
+                    const plan = restyleStoryboard(
+                      project.plan,
+                      project.assets.length,
+                      project.brandIconAsset ?? -1,
+                      {
+                        style,
+                        energy: project.creativeDirection?.energy,
+                        seed: Math.floor(Math.random() * 100000),
+                      },
+                    );
+                    const next = {
+                      ...project,
+                      plan,
+                      creativeDirection: { ...project.creativeDirection, style },
+                    };
+                    revision.current++;
+                    setProject(next);
+                    void storeAsset('director-project', new Blob([JSON.stringify(next)])).catch(
+                      () => setStatus('Visuals changed, but could not be saved locally.'),
+                    );
+                    setStatus(
+                      'Visuals restyled. Scene timing, captions, pointers and music kept. No AI request used.',
+                    );
+                  }}
+                >
+                  <RotateCw size={15} />
+                  Restyle visuals
+                </button>
+                <small>
+                  Try a different palette and layout. Keeps timing, captions, pointers and music.
+                </small>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function SceneImages({project,sceneIndex,componentIndex,disabled,onSave}:{project:Project;sceneIndex:number;componentIndex:number;disabled:boolean;onSave:(p:Project)=>void}){
- const [error,setError]=useState('');const scene=project.plan.scenes[sceneIndex];
- const images=scene.components.flatMap((c,ci)=>c.elements.flatMap((e,ei)=>ci===componentIndex&&e.kind==='image'?[{e,ci,ei,name:c.name}]:[]));
- async function replace(file:File,ci:number,ei:number){try{setError('');if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10000000)throw Error('Choose a PNG, JPEG or WebP image under 10 MB.');const bitmap=await createImageBitmap(file);try{const canvas=document.createElement('canvas'),scale=Math.min(1,1024/Math.max(bitmap.width,bitmap.height));canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);const assets=[...project.assets],asset=assets.length;if(asset>63)throw Error('Image limit reached.');const isIcon=scene.components[ci].name==='Website icon';assets.push(isIcon?await cleanIcon(canvas.toDataURL('image/png')):canvas.toDataURL('image/png'));const plan=validateCreative({...project.plan,scenes:project.plan.scenes.map((s,i)=>({...s,components:s.components.map((c,j)=>({...c,elements:c.elements.map((e,k)=>(isIcon&&c.name==='Website icon'&&e.kind==='image')||(i===sceneIndex&&j===ci&&k===ei)?{...e,asset}:e)}))}))});onSave({...project,assets,plan,...(isIcon?{brandIconAsset:asset,iconCleanupVersion:1}:{})})}finally{bitmap.close()}}catch(e){setError(e instanceof Error?e.message:'Could not load this picture.')}}
- return images.length?<div className="director-inline-images">{images.map(({e,ci,ei,name})=><div className="director-inline-image" key={`${ci}-${ei}`}><img src={project.assets[e.asset]} alt={name}/><div><strong>{name}</strong><small>{name==='Website icon'?'Updates all scenes':'This scene only'}</small></div><label className={`button quiet director-replace-image ${disabled?'is-disabled':''}`}><Upload size={15}/><span>{name==='Website icon'?'Replace icon':'Replace image'}</span><input aria-label={`Replace ${name}`} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={event=>{const file=event.target.files?.[0];if(file)void replace(file,ci,ei);event.target.value=''}}/></label></div>)}{error&&<p role="alert">{error}</p>}</div>:null;
+function SceneImages({
+  project,
+  sceneIndex,
+  componentIndex,
+  disabled,
+  onSave,
+}: {
+  project: Project;
+  sceneIndex: number;
+  componentIndex: number;
+  disabled: boolean;
+  onSave: (p: Project) => void;
+}) {
+  const [error, setError] = useState('');
+  const scene = project.plan.scenes[sceneIndex];
+  const images = scene.components.flatMap((c, ci) =>
+    c.elements.flatMap((e, ei) =>
+      ci === componentIndex && e.kind === 'image' ? [{ e, ci, ei, name: c.name }] : [],
+    ),
+  );
+  async function replace(file: File, ci: number, ei: number) {
+    try {
+      setError('');
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10000000)
+        throw Error('Choose a PNG, JPEG or WebP image under 10 MB.');
+      const bitmap = await createImageBitmap(file);
+      try {
+        const canvas = document.createElement('canvas'),
+          scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const assets = [...project.assets],
+          asset = assets.length;
+        if (asset > 63) throw Error('Image limit reached.');
+        const isIcon = scene.components[ci].name === 'Website icon';
+        assets.push(
+          isIcon ? await cleanIcon(canvas.toDataURL('image/png')) : canvas.toDataURL('image/png'),
+        );
+        const plan = validateCreative({
+          ...project.plan,
+          scenes: project.plan.scenes.map((s, i) => ({
+            ...s,
+            components: s.components.map((c, j) => ({
+              ...c,
+              elements: c.elements.map((e, k) =>
+                (isIcon && c.name === 'Website icon' && e.kind === 'image') ||
+                (i === sceneIndex && j === ci && k === ei)
+                  ? { ...e, asset }
+                  : e,
+              ),
+            })),
+          })),
+        });
+        onSave({
+          ...project,
+          assets,
+          plan,
+          ...(isIcon ? { brandIconAsset: asset, iconCleanupVersion: 1 } : {}),
+        });
+      } finally {
+        bitmap.close();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load this picture.');
+    }
+  }
+  return images.length ? (
+    <div className="director-inline-images">
+      {images.map(({ e, ci, ei, name }) => (
+        <div className="director-inline-image" key={`${ci}-${ei}`}>
+          <img src={project.assets[e.asset]} alt={name} />
+          <div>
+            <strong>{name}</strong>
+            <small>{name === 'Website icon' ? 'Updates all scenes' : 'This scene only'}</small>
+          </div>
+          <label className={`button quiet director-replace-image ${disabled ? 'is-disabled' : ''}`}>
+            <Upload size={15} />
+            <span>{name === 'Website icon' ? 'Replace icon' : 'Replace image'}</span>
+            <input
+              aria-label={`Replace ${name}`}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={disabled}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void replace(file, ci, ei);
+                event.target.value = '';
+              }}
+            />
+          </label>
+        </div>
+      ))}
+      {error && <p role="alert">{error}</p>}
+    </div>
+  ) : null;
 }
 
-function CreationLoading({status,onCancel}:{status:string;onCancel:()=>void}){
- const dialog=useRef<HTMLDialogElement>(null);
- useEffect(()=>{const element=dialog.current;element?.showModal();return()=>{element?.close()}},[]);
- return <dialog ref={dialog} className="director-creation-dialog" aria-labelledby="creation-title" aria-describedby="creation-description" onCancel={e=>{e.preventDefault();onCancel()}}><div className="director-creation-art" aria-hidden="true"><span/><LoaderCircle size={38}/><Sparkles size={19}/></div><span className="director-creation-eyebrow">A LITTLE MAGIC IN MOTION</span><h2 id="creation-title">Working on your sexy video.</h2><p id="creation-description">Keep calm. We're making every frame count.</p><div className="director-creation-stage" role="status" aria-live="polite"><span/>{status}</div><button type="button" className="button quiet" autoFocus onClick={onCancel}>Cancel creation</button></dialog>;
+function CreationLoading({ status, onCancel }: { status: string; onCancel: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => {
+      element?.close();
+    };
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="director-creation-dialog"
+      aria-labelledby="creation-title"
+      aria-describedby="creation-description"
+      onCancel={(e) => {
+        e.preventDefault();
+        onCancel();
+      }}
+    >
+      <div className="director-creation-art" aria-hidden="true">
+        <span />
+        <LoaderCircle size={38} />
+        <Sparkles size={19} />
+      </div>
+      <span className="director-creation-eyebrow">A LITTLE MAGIC IN MOTION</span>
+      <h2 id="creation-title">Working on your sexy video.</h2>
+      <p id="creation-description">Keep calm. We're making every frame count.</p>
+      <div className="director-creation-stage" role="status" aria-live="polite">
+        <span />
+        {status}
+      </div>
+      <button type="button" className="button quiet" autoFocus onClick={onCancel}>
+        Cancel creation
+      </button>
+    </dialog>
+  );
 }

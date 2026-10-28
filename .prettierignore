@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.git/
+.vercel/
+package-lock.json
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

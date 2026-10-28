@@ -9,6 +9,7 @@ The separate `/api/creative-animation` endpoint asks Groq for scene durations, c
 The AI template no longer calls the Paper & stickers renderer or silently substitutes that template. Generation failures preserve the previous project and display an error. Existing other templates remain available.
 
 Validation:
+
 - `node tests/creative-pipeline.mjs`: geometry preservation, rejected markup, ordered keyframes and mocked Groq integration.
 - `/tests/creative-renderer.html`: synthetic-fixture rendering at three timestamps and SVG parsing.
 - `/tests/creative-editor.html`: synthetic-fixture editing and underlying state update.

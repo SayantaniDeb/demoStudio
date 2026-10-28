@@ -1,4 +1,4 @@
-# Frame — local demo studio
+# DemoTake — local demo studio
 
 A desktop-first PWA prototype for screen + camera recording, local video editing, and editable animated demo scenes.
 
@@ -67,7 +67,7 @@ Quality: new screen recordings request 20 Mbps video and 192 kbps audio. The cur
 
 ## Website link import
 
-Demo Studio → Website Link to Video reads a public URL with a fresh, unauthenticated headless Chrome session. It extracts visible headings, descriptions, feature copy, a CTA and an accent color, then sends that public text to Groq to plan editable UI layers, colours, scene timing and camera movement. The browser draws and exports the storyboard locally. Basic mode retains the 22-second preset renderer when explicitly selected. Source data and edits persist with the project; export uses the same canvas renderer.  This is content-based scene generation, not exact reconstruction of arbitrary page layouts or private workflows. Sites that require sign-in or block automation return an error rather than invented content.
+Demo Studio → Website Link to Video reads a public URL with a fresh, unauthenticated headless Chrome session. It extracts visible headings, descriptions, feature copy, a CTA and an accent color, then sends that public text to Groq to plan editable UI layers, colours, scene timing and camera movement. The browser draws and exports the storyboard locally. Basic mode retains the 22-second preset renderer when explicitly selected. Source data and edits persist with the project; export uses the same canvas renderer. This is content-based scene generation, not exact reconstruction of arbitrary page layouts or private workflows. Sites that require sign-in or block automation return an error rather than invented content.
 
 The `/api/website-demo` endpoint is installed in Vite dev/preview. For a built local app, run `npm run build` then `npm run serve` (port 8787). Chrome must be installed; set `DEMO_CHROME_PATH` if it is in a different location. A static-only production host must also host this endpoint or configure `VITE_WEBSITE_DEMO_ENDPOINT` to an equivalent service with appropriate CORS. Firestore does not fetch webpages. The server reads public website content; it does not receive screen recordings or render exports. Do not expose the endpoint publicly without authentication and deployment-specific rate limits. Private network URLs/subrequests, credentials in URLs and nonstandard ports are rejected. Browser sessions close after extraction.
 
@@ -107,7 +107,6 @@ Animation contains Upload Video, Upload Image, and Website Link to Video. Upload
 
 Uploaded-media analysis now scans the full source at approximately one-second intervals (not just the selected timeline ranges). Tesseract recognizes changed screens and four-second checkpoints, adjacent observations are grouped by text overlap and visual similarity, and spatially related regions become source-backed stickers in downloadable PNG compositions. Source analysis and image downloads appear in the animation inspector after generating a new storyboard. Recognition runs locally; its first run downloads the English OCR model. This is heuristic grouping, not semantic LLM understanding; very brief events between samples and low-confidence text may be missed. Long uploads take proportionally longer to analyze. Up to 36 representative groups are retained, with three image compositions selected for the demo.
 
-
 ## Deploy through GitHub to Vercel
 
 1. Push this project to a private GitHub repository. `.env.local`, build output, and dependencies are excluded from Git.
@@ -121,3 +120,7 @@ Uploaded-media analysis now scans the full source at approximately one-second in
 Verify screen recording in desktop Chrome over HTTPS, `/api/ai-status`, captions, and website import after deployment. Website capture responses must fit Vercel's function payload limit; image-heavy pages can exceed it. The existing 60-second mono WAV caption chunks are approximately 1.9 MB each. Browser extension installation remains a separate step; see `extension/README.md`.
 
 The AI and website-import endpoints currently have no application authentication or distributed rate limiting. Keep the deployment protected for private testing until those controls are added for a public launch. A private GitHub repository does not make the deployed website private.
+
+### Search metadata
+
+The homepage includes descriptive search/social metadata, SoftwareApplication structured data, and visible product questions. Set `SITE_URL=https://your-production-domain` in the build environment to generate a matching canonical URL, Open Graph URL and sitemap. Without this value no production domain is guessed. After deployment, submit `/sitemap.xml` in Google Search Console. The production build prerenders the homepage product copy, features and FAQs into HTML. JavaScript activates the interactive studio.

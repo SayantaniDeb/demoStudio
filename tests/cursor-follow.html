@@ -1,7 +1,48 @@
-<!doctype html><html><body><h1>Cursor follow regression checks</h1><pre id="result">Running</pre><script type="module">
-import {cursorFocusPoints,frameOffset,viewAt} from '/src/motion.ts';
-try{const check=(v,m)=>{if(!v)throw Error(m)};const points=cursorFocusPoints([{time:0,x:.2,y:.3,click:false},{time:1,x:.6,y:.4,click:true},{time:5,x:.6,y:.4,click:false},{time:6,x:.7,y:.6,click:true}],8);
-check(viewAt(points,1.5,true,1.7,50,50).zoom>1.6,'Activity should zoom in');check(viewAt(points,4,true,1.7,50,50).zoom===1,'Idle should zoom out');check(viewAt(points,6.3,true,1.7,50,50).zoom>1.6,'Later click should zoom back in');
-check(Math.abs(frameOffset(1000,1700,60,true)+.6*1700-500)<.001,'Cursor should center');check(frameOffset(1000,1700,100,true)===-700,'Right edge should clamp');check(frameOffset(1000,1700,0,true)===0,'Left edge should clamp');
-let jump=0;for(let t=.01;t<8;t+=.01)jump=Math.max(jump,Math.abs(viewAt(points,t,true,1.7,50,50).zoom-viewAt(points,t-.01,true,1.7,50,50).zoom));check(jump<.02,'Zoom should be continuous');check(!cursorFocusPoints([],8).length,'Empty telemetry');document.querySelector('#result').textContent='PASS activity zoom, idle zoom out, later zoom in, cursor centering, edge clamps, continuous transitions, empty telemetry';}catch(e){document.querySelector('#result').textContent='FAIL '+e.message}
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <h1>Cursor follow regression checks</h1>
+    <pre id="result">Running</pre>
+    <script type="module">
+      import { cursorFocusPoints, frameOffset, viewAt } from '/src/motion.ts';
+      try {
+        const check = (v, m) => {
+          if (!v) throw Error(m);
+        };
+        const points = cursorFocusPoints(
+          [
+            { time: 0, x: 0.2, y: 0.3, click: false },
+            { time: 1, x: 0.6, y: 0.4, click: true },
+            { time: 5, x: 0.6, y: 0.4, click: false },
+            { time: 6, x: 0.7, y: 0.6, click: true },
+          ],
+          8,
+        );
+        check(viewAt(points, 1.5, true, 1.7, 50, 50).zoom > 1.6, 'Activity should zoom in');
+        check(viewAt(points, 4, true, 1.7, 50, 50).zoom === 1, 'Idle should zoom out');
+        check(viewAt(points, 6.3, true, 1.7, 50, 50).zoom > 1.6, 'Later click should zoom back in');
+        check(
+          Math.abs(frameOffset(1000, 1700, 60, true) + 0.6 * 1700 - 500) < 0.001,
+          'Cursor should center',
+        );
+        check(frameOffset(1000, 1700, 100, true) === -700, 'Right edge should clamp');
+        check(frameOffset(1000, 1700, 0, true) === 0, 'Left edge should clamp');
+        let jump = 0;
+        for (let t = 0.01; t < 8; t += 0.01)
+          jump = Math.max(
+            jump,
+            Math.abs(
+              viewAt(points, t, true, 1.7, 50, 50).zoom -
+                viewAt(points, t - 0.01, true, 1.7, 50, 50).zoom,
+            ),
+          );
+        check(jump < 0.02, 'Zoom should be continuous');
+        check(!cursorFocusPoints([], 8).length, 'Empty telemetry');
+        document.querySelector('#result').textContent =
+          'PASS activity zoom, idle zoom out, later zoom in, cursor centering, edge clamps, continuous transitions, empty telemetry';
+      } catch (e) {
+        document.querySelector('#result').textContent = 'FAIL ' + e.message;
+      }
+    </script>
+  </body>
+</html>

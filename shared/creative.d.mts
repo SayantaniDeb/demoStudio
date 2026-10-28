@@ -1,1 +1,1 @@
-export function validateCreative(value:unknown):import('../src/creative').CreativeAnimation;
+export function validateCreative(value: unknown): import('../src/creative').CreativeAnimation;

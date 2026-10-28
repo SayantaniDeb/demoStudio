@@ -1,4 +1,33 @@
-<!doctype html><html><body><h1>Capture cursor checks</h1><pre id="result">Running…</pre><script type="module">
-import {configureCaptureCursor} from '/src/captureCursor.ts';
-try{const results=[];for(const [cursor,expected,reject] of [['never','hidden',false],['always','visible',true],[undefined,'unconfirmed',true]]){let requested;const track={applyConstraints:async constraints=>{requested=constraints.cursor;if(reject)throw Error('Unsupported')},getSettings:()=>({cursor})};const status=await configureCaptureCursor(track);if(requested!=='never'||status!==expected)throw Error('Incorrect capture status');results.push('PASS '+expected+' cursor status')}document.querySelector('#result').textContent=results.join('\n')}catch(error){document.querySelector('#result').textContent='FAIL '+error.message}
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <h1>Capture cursor checks</h1>
+    <pre id="result">Running…</pre>
+    <script type="module">
+      import { configureCaptureCursor } from '/src/captureCursor.ts';
+      try {
+        const results = [];
+        for (const [cursor, expected, reject] of [
+          ['never', 'hidden', false],
+          ['always', 'visible', true],
+          [undefined, 'unconfirmed', true],
+        ]) {
+          let requested;
+          const track = {
+            applyConstraints: async (constraints) => {
+              requested = constraints.cursor;
+              if (reject) throw Error('Unsupported');
+            },
+            getSettings: () => ({ cursor }),
+          };
+          const status = await configureCaptureCursor(track);
+          if (requested !== 'never' || status !== expected) throw Error('Incorrect capture status');
+          results.push('PASS ' + expected + ' cursor status');
+        }
+        document.querySelector('#result').textContent = results.join('\n');
+      } catch (error) {
+        document.querySelector('#result').textContent = 'FAIL ' + error.message;
+      }
+    </script>
+  </body>
+</html>
