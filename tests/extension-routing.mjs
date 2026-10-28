@@ -1,17 +1,51 @@
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
-let listener;const delivered=[];
-const chrome={runtime:{onMessage:{addListener(fn){listener=fn}}},storage:{session:{get:async()=>({target:22})}},tabs:{sendMessage:async(tab,message)=>{delivered.push({tab,message})}}};
-vm.runInNewContext(fs.readFileSync('extension/background.js','utf8'),{chrome});
-const owner={tab:{id:11,url:'http://127.0.0.1:5173/'}};
-const call=(message,sender)=>new Promise(resolve=>{const pending=listener(message,sender,resolve);if(!pending)setTimeout(()=>resolve(undefined),0)});
-assert.equal((await call({type:'frame-command',command:'hello'},owner)).available,true);
-assert.equal(await call({type:'frame-command',command:'hello'},{tab:{id:33,url:'https://example.com/'}}),undefined);
-assert.equal((await call({type:'frame-command',command:'start',id:'test'},owner)).active,true);
-assert.equal(delivered[0].tab,22);
-await call({type:'frame-sample',id:'test',x:.5,y:.25,at:100},{tab:{id:33}});assert.equal(delivered.length,1);
-await call({type:'frame-sample',id:'test',x:.5,y:.25,at:100},{tab:{id:22}});assert.equal(delivered[1].tab,11);
-await call({type:'frame-command',command:'stop'},owner);assert.equal(delivered[2].message.enabled,false);
-await call({type:'frame-sample',id:'test',x:.5,y:.25,at:100},{tab:{id:22}});assert.equal(delivered.length,3);
-console.log('PASS: handshake, origin restriction, start, selected-tab isolation, sample relay, stop.');
+let listener;
+const delivered = [];
+const chrome = {
+  runtime: {
+    onMessage: {
+      addListener(fn) {
+        listener = fn;
+      },
+    },
+  },
+  storage: { session: { get: async () => ({ target: 22 }) } },
+  tabs: {
+    sendMessage: async (tab, message) => {
+      delivered.push({ tab, message });
+    },
+  },
+};
+vm.runInNewContext(fs.readFileSync('extension/background.js', 'utf8'), { chrome });
+const owner = { tab: { id: 11, url: 'http://127.0.0.1:5173/' } };
+const call = (message, sender) =>
+  new Promise((resolve) => {
+    const pending = listener(message, sender, resolve);
+    if (!pending) setTimeout(() => resolve(undefined), 0);
+  });
+assert.equal((await call({ type: 'frame-command', command: 'hello' }, owner)).available, true);
+assert.equal(
+  await call(
+    { type: 'frame-command', command: 'hello' },
+    { tab: { id: 33, url: 'https://example.com/' } },
+  ),
+  undefined,
+);
+assert.equal(
+  (await call({ type: 'frame-command', command: 'start', id: 'test' }, owner)).active,
+  true,
+);
+assert.equal(delivered[0].tab, 22);
+await call({ type: 'frame-sample', id: 'test', x: 0.5, y: 0.25, at: 100 }, { tab: { id: 33 } });
+assert.equal(delivered.length, 1);
+await call({ type: 'frame-sample', id: 'test', x: 0.5, y: 0.25, at: 100 }, { tab: { id: 22 } });
+assert.equal(delivered[1].tab, 11);
+await call({ type: 'frame-command', command: 'stop' }, owner);
+assert.equal(delivered[2].message.enabled, false);
+await call({ type: 'frame-sample', id: 'test', x: 0.5, y: 0.25, at: 100 }, { tab: { id: 22 } });
+assert.equal(delivered.length, 3);
+console.log(
+  'PASS: handshake, origin restriction, start, selected-tab isolation, sample relay, stop.',
+);

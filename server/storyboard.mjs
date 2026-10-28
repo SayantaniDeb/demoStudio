@@ -1,1 +1,1 @@
-export {buildStoryboard} from '../shared/directorStoryboard.mjs';
+export { buildStoryboard } from '../shared/directorStoryboard.mjs';

@@ -1,1 +1,9 @@
-{"name":"Frame Demo Studio","short_name":"Frame","start_url":"/","display":"standalone","background_color":"#f4f5f1","theme_color":"#161a19","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "name": "DemoTake",
+  "short_name": "DemoTake",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f1",
+  "theme_color": "#161a19",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

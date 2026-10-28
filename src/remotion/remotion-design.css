@@ -1,1 +1,129 @@
-.remotion-design-studio{padding:28px;background:#f8f9f5;border:1px solid #dfe4d8;border-radius:14px;margin:20px 0;color:#232b26}.remotion-design-studio>header{display:flex;justify-content:space-between;align-items:start;height:auto;min-height:0;margin:0 0 22px;padding:0;background:none;border:0}.remotion-design-studio header span{font-size:10px;letter-spacing:2px;color:#728060}.remotion-design-studio h2{font-size:28px;margin:8px 0;letter-spacing:-1px}.remotion-design-studio header p{font-size:14px;color:#687460;margin:0}.remotion-design-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(240px,1fr);gap:28px;align-items:start}.remotion-design-preview{min-width:0;border-radius:10px;overflow:hidden}.remotion-design-preview>p{font-size:12px;color:#728060}.remotion-design-fields{display:grid;gap:14px}.remotion-design-fields label{display:grid;gap:6px;font-size:13px;font-weight:600}.remotion-design-fields input:not([type=color]),.remotion-design-fields textarea{width:100%;min-height:40px;padding:10px;background:white;border:1px solid #dce2d5;border-radius:7px;font:14px inherit;color:#232b26;box-sizing:border-box}.remotion-design-fields textarea{min-height:72px;resize:vertical}.remotion-design-fields fieldset{border:0;padding:0;margin:0;display:flex;gap:6px;flex-wrap:wrap}.remotion-design-fields legend{font-size:13px;font-weight:600;margin-bottom:8px}.remotion-design-fields fieldset button{padding:9px 11px;border:1px solid #dce2d5;border-radius:7px;background:white;color:#556347;font-size:12px;cursor:pointer}.remotion-design-fields fieldset button[aria-pressed=true]{background:#e6edda;border-color:#9daf7d;color:#263822}.remotion-design-fields .remotion-color{display:flex;align-items:center;justify-content:space-between}.remotion-design-fields small,.remotion-design-fields p{font-size:12px;line-height:1.6;color:#728060;margin:0}.remotion-design-fields :focus-visible{outline:2px solid #819c4d;outline-offset:3px}@media(max-width:767px){.remotion-design-studio{padding:18px}.remotion-design-grid{grid-template-columns:1fr}.remotion-design-fields fieldset button{min-height:44px}}
+.remotion-design-studio {
+  padding: 28px;
+  background: #f8f9f5;
+  border: 1px solid #dfe4d8;
+  border-radius: 14px;
+  margin: 20px 0;
+  color: #232b26;
+}
+.remotion-design-studio > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  height: auto;
+  min-height: 0;
+  margin: 0 0 22px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.remotion-design-studio header span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #728060;
+}
+.remotion-design-studio h2 {
+  font-size: 28px;
+  margin: 8px 0;
+  letter-spacing: -1px;
+}
+.remotion-design-studio header p {
+  font-size: 14px;
+  color: #687460;
+  margin: 0;
+}
+.remotion-design-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.remotion-design-preview {
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.remotion-design-preview > p {
+  font-size: 12px;
+  color: #728060;
+}
+.remotion-design-fields {
+  display: grid;
+  gap: 14px;
+}
+.remotion-design-fields label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.remotion-design-fields input:not([type='color']),
+.remotion-design-fields textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px;
+  background: white;
+  border: 1px solid #dce2d5;
+  border-radius: 7px;
+  font: 14px inherit;
+  color: #232b26;
+  box-sizing: border-box;
+}
+.remotion-design-fields textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.remotion-design-fields fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.remotion-design-fields legend {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.remotion-design-fields fieldset button {
+  padding: 9px 11px;
+  border: 1px solid #dce2d5;
+  border-radius: 7px;
+  background: white;
+  color: #556347;
+  font-size: 12px;
+  cursor: pointer;
+}
+.remotion-design-fields fieldset button[aria-pressed='true'] {
+  background: #e6edda;
+  border-color: #9daf7d;
+  color: #263822;
+}
+.remotion-design-fields .remotion-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.remotion-design-fields small,
+.remotion-design-fields p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #728060;
+  margin: 0;
+}
+.remotion-design-fields :focus-visible {
+  outline: 2px solid #819c4d;
+  outline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .remotion-design-studio {
+    padding: 18px;
+  }
+  .remotion-design-grid {
+    grid-template-columns: 1fr;
+  }
+  .remotion-design-fields fieldset button {
+    min-height: 44px;
+  }
+}

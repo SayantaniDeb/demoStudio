@@ -1,4 +1,42 @@
-<!doctype html><html><body><h1>Caption styles and timing</h1><pre id="result"></pre><script type="module">
-import {renderCaption,captionAt,captionStyles} from '/src/captions.ts';import {mapSegments} from '/src/demoTimeline.ts';
-try{const captions=[{start:2,end:4,text:'Make every detail easy to understand.'}];if(captionAt(captions,1)!==''||captionAt(captions,2)!==captions[0].text||captionAt(captions,4)!=='')throw Error('Timing boundary wrong');if(!captionAt(captions,mapSegments([{id:'a',start:2,end:4}],.5).time))throw Error('Trim mapping wrong');const signatures=[];for(const style of captionStyles){const title=document.createElement('p');title.textContent=style.name;const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;canvas.style.width='min(100%,640px)';const ctx=canvas.getContext('2d');ctx.fillStyle='#edf0e6';ctx.fillRect(0,0,640,360);renderCaption(ctx,captions[0].text,style.id);signatures.push(canvas.toDataURL());document.body.append(title,canvas)}if(new Set(signatures).size!==4)throw Error('Styles not distinct');document.querySelector('#result').textContent='PASS timed captions, trim mapping and four distinct styles'}catch(e){document.querySelector('#result').textContent='FAIL '+e.message}
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <h1>Caption styles and timing</h1>
+    <pre id="result"></pre>
+    <script type="module">
+      import { renderCaption, captionAt, captionStyles } from '/src/captions.ts';
+      import { mapSegments } from '/src/demoTimeline.ts';
+      try {
+        const captions = [{ start: 2, end: 4, text: 'Make every detail easy to understand.' }];
+        if (
+          captionAt(captions, 1) !== '' ||
+          captionAt(captions, 2) !== captions[0].text ||
+          captionAt(captions, 4) !== ''
+        )
+          throw Error('Timing boundary wrong');
+        if (!captionAt(captions, mapSegments([{ id: 'a', start: 2, end: 4 }], 0.5).time))
+          throw Error('Trim mapping wrong');
+        const signatures = [];
+        for (const style of captionStyles) {
+          const title = document.createElement('p');
+          title.textContent = style.name;
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 360;
+          canvas.style.width = 'min(100%,640px)';
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#edf0e6';
+          ctx.fillRect(0, 0, 640, 360);
+          renderCaption(ctx, captions[0].text, style.id);
+          signatures.push(canvas.toDataURL());
+          document.body.append(title, canvas);
+        }
+        if (new Set(signatures).size !== 4) throw Error('Styles not distinct');
+        document.querySelector('#result').textContent =
+          'PASS timed captions, trim mapping and four distinct styles';
+      } catch (e) {
+        document.querySelector('#result').textContent = 'FAIL ' + e.message;
+      }
+    </script>
+  </body>
+</html>

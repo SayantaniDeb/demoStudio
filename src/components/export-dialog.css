@@ -1,1 +1,127 @@
-.export-dialog{width:min(620px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #dfe6d5;border-radius:22px;padding:26px;background:#fafbf7;color:#26372c;box-shadow:0 24px 90px #15261b38;font-family:inherit}.export-dialog::backdrop{background:#14231ccc;backdrop-filter:blur(5px)}.export-dialog-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.export-dialog-top button{display:grid;place-items:center;padding:7px;border-radius:50%;background:#edf1e7}.export-dialog-eyebrow{font-size:10px;font-weight:700;letter-spacing:1.5px;color:#71815e}.export-dialog h2{font-size:27px;line-height:1.2;letter-spacing:-.7px;margin:20px 0 12px}.export-dialog p{font-size:14px;line-height:1.65;color:#6c7966;margin:0 0 22px}.export-dialog-art{display:flex;align-items:center;justify-content:center;gap:15px;background:#e5efcf;color:#66833e;width:110px;height:90px;border-radius:24px;margin-top:26px}.export-dialog-spinner{animation:export-dialog-spin 1.4s linear infinite}.export-dialog-progress{display:flex;justify-content:space-between;font-size:13px;margin-bottom:12px}.export-dialog progress{display:block;width:100%;height:9px;accent-color:#89a64e}.export-dialog-cancel{margin-top:22px;padding:10px 15px;background:#edf1e7;border-radius:9px;font-size:12px}.export-dialog video{display:block;width:100%;max-height:50dvh;border-radius:12px;background:#17251d;margin:18px 0;object-fit:contain}.export-dialog-save{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;background:#bfd879;color:#26372c;border-radius:10px;text-decoration:none;font-size:14px;font-weight:700}.export-dialog small{display:block;margin-top:12px;font-size:12px;color:#647352}@keyframes export-dialog-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.export-dialog-spinner{animation:none}}@media(max-width:600px){.export-dialog{padding:20px}.export-dialog h2{font-size:23px}}
+.export-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid #dfe6d5;
+  border-radius: 22px;
+  padding: 26px;
+  background: #fafbf7;
+  color: #26372c;
+  box-shadow: 0 24px 90px #15261b38;
+  font-family: inherit;
+}
+.export-dialog::backdrop {
+  background: #14231ccc;
+  backdrop-filter: blur(5px);
+}
+.export-dialog-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.export-dialog-top button {
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  border-radius: 50%;
+  background: #edf1e7;
+}
+.export-dialog-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #71815e;
+}
+.export-dialog h2 {
+  font-size: 27px;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+  margin: 20px 0 12px;
+}
+.export-dialog p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #6c7966;
+  margin: 0 0 22px;
+}
+.export-dialog-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  background: #e5efcf;
+  color: #66833e;
+  width: 110px;
+  height: 90px;
+  border-radius: 24px;
+  margin-top: 26px;
+}
+.export-dialog-spinner {
+  animation: export-dialog-spin 1.4s linear infinite;
+}
+.export-dialog-progress {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.export-dialog progress {
+  display: block;
+  width: 100%;
+  height: 9px;
+  accent-color: #89a64e;
+}
+.export-dialog-cancel {
+  margin-top: 22px;
+  padding: 10px 15px;
+  background: #edf1e7;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.export-dialog video {
+  display: block;
+  width: 100%;
+  max-height: 50dvh;
+  border-radius: 12px;
+  background: #17251d;
+  margin: 18px 0;
+  object-fit: contain;
+}
+.export-dialog-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 18px;
+  background: #bfd879;
+  color: #26372c;
+  border-radius: 10px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+.export-dialog small {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #647352;
+}
+@keyframes export-dialog-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .export-dialog-spinner {
+    animation: none;
+  }
+}
+@media (max-width: 600px) {
+  .export-dialog {
+    padding: 20px;
+  }
+  .export-dialog h2 {
+    font-size: 23px;
+  }
+}

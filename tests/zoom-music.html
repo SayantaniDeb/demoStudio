@@ -1,8 +1,119 @@
-<!doctype html><html><body><h1>Zoom and built-in music checks</h1><pre id="result">Running…</pre><script type="module">
-import {CursorReplacer,paintCursor} from '/src/cursor.ts';import {viewAt} from '/src/motion.ts';import {makeSoundtrack} from '/src/demoAudio.ts';
-try{const points=[{time:0,x:50,y:50,strength:1},{time:1.8,x:75,y:30,strength:1},{time:2,x:75,y:30,strength:0}];const check=(value,message)=>{if(!value)throw Error(message)};
-check(Math.abs(viewAt(points,1,true,1.03,50,50).zoom-1.03)<.001,'3% zoom in ignored');check(Math.abs(viewAt(points,1,true,.97,50,50).zoom-.97)<.001,'3% zoom out ignored');check(viewAt(points,3,true,1.5,50,50).zoom===1,'Idle zoom did not return to normal');
-const frame=document.createElement('canvas');frame.width=640;frame.height=360;Object.defineProperties(frame,{videoWidth:{value:640},videoHeight:{value:360},readyState:{value:4},currentTime:{value:0,writable:true},seeking:{value:false}});const ctx=frame.getContext('2d');const draw=x=>{ctx.fillStyle='#dddddd';ctx.fillRect(0,0,640,360);paintCursor(ctx,x,100,28,'arrow')};draw(100);const tracker=new CursorReplacer();tracker.calibrate(frame,{time:0,x:100/640,y:100/360,width:28});frame.currentTime=.1;draw(140);tracker.render(frame,'arrow',28);check(tracker.confidence>=.94&&Math.abs(tracker.x-140)<=2,'Cursor did not follow the best match');
-frame.currentTime=.2;draw(501);tracker.render(frame,'arrow',28);check(tracker.confidence>=.94&&Math.abs(tracker.x-501)<=2,'Fast cursor jump was not recovered');check(Math.abs(viewAt(points,1.999,true,2,50,50).zoom-viewAt(points,2.001,true,2,50,50).zoom)<.01,'Zoom discontinuity at keyframe');
-const energy=b=>b.getChannelData(0).reduce((n,v)=>n+v*v,0);const energies=[];for(const musicTrack of ['warm','pulse','ambient','none']){const buffer=await makeSoundtrack(3,[1,2],undefined,{musicTrack,musicVolume:.3,effects:false,effectVolume:0});const value=energy(buffer);check(musicTrack==='none'?value===0:value>1,'Track is silent or mute ignored');energies.push(value);const audio=document.createElement('audio');audio.controls=true;const samples=buffer.getChannelData(0),bytes=new ArrayBuffer(44+samples.length*2),view=new DataView(bytes);const str=(offset,s)=>[...s].forEach((c,i)=>view.setUint8(offset+i,c.charCodeAt(0)));str(0,'RIFF');view.setUint32(4,36+samples.length*2,true);str(8,'WAVE');str(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,44100,true);view.setUint32(28,88200,true);view.setUint16(32,2,true);view.setUint16(34,16,true);str(36,'data');view.setUint32(40,samples.length*2,true);samples.forEach((v,i)=>view.setInt16(44+i*2,Math.max(-1,Math.min(1,v))*32767,true));audio.src=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'}));const label=document.createElement('p');label.textContent=musicTrack;document.body.append(label,audio)}check(new Set(energies).size===4,'Tracks are identical');document.querySelector('#result').textContent='PASS fast cursor jump, continuous zoom, cursor follows best match, exact zoom amounts, zoom out, idle reset, three audible distinct tracks and mute';}catch(e){document.querySelector('#result').textContent='FAIL '+e.message}
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <h1>Zoom and built-in music checks</h1>
+    <pre id="result">Running…</pre>
+    <script type="module">
+      import { CursorReplacer, paintCursor } from '/src/cursor.ts';
+      import { viewAt } from '/src/motion.ts';
+      import { makeSoundtrack } from '/src/demoAudio.ts';
+      try {
+        const points = [
+          { time: 0, x: 50, y: 50, strength: 1 },
+          { time: 1.8, x: 75, y: 30, strength: 1 },
+          { time: 2, x: 75, y: 30, strength: 0 },
+        ];
+        const check = (value, message) => {
+          if (!value) throw Error(message);
+        };
+        check(
+          Math.abs(viewAt(points, 1, true, 1.03, 50, 50).zoom - 1.03) < 0.001,
+          '3% zoom in ignored',
+        );
+        check(
+          Math.abs(viewAt(points, 1, true, 0.97, 50, 50).zoom - 0.97) < 0.001,
+          '3% zoom out ignored',
+        );
+        check(
+          viewAt(points, 3, true, 1.5, 50, 50).zoom === 1,
+          'Idle zoom did not return to normal',
+        );
+        const frame = document.createElement('canvas');
+        frame.width = 640;
+        frame.height = 360;
+        Object.defineProperties(frame, {
+          videoWidth: { value: 640 },
+          videoHeight: { value: 360 },
+          readyState: { value: 4 },
+          currentTime: { value: 0, writable: true },
+          seeking: { value: false },
+        });
+        const ctx = frame.getContext('2d');
+        const draw = (x) => {
+          ctx.fillStyle = '#dddddd';
+          ctx.fillRect(0, 0, 640, 360);
+          paintCursor(ctx, x, 100, 28, 'arrow');
+        };
+        draw(100);
+        const tracker = new CursorReplacer();
+        tracker.calibrate(frame, { time: 0, x: 100 / 640, y: 100 / 360, width: 28 });
+        frame.currentTime = 0.1;
+        draw(140);
+        tracker.render(frame, 'arrow', 28);
+        check(
+          tracker.confidence >= 0.94 && Math.abs(tracker.x - 140) <= 2,
+          'Cursor did not follow the best match',
+        );
+        frame.currentTime = 0.2;
+        draw(501);
+        tracker.render(frame, 'arrow', 28);
+        check(
+          tracker.confidence >= 0.94 && Math.abs(tracker.x - 501) <= 2,
+          'Fast cursor jump was not recovered',
+        );
+        check(
+          Math.abs(
+            viewAt(points, 1.999, true, 2, 50, 50).zoom -
+              viewAt(points, 2.001, true, 2, 50, 50).zoom,
+          ) < 0.01,
+          'Zoom discontinuity at keyframe',
+        );
+        const energy = (b) => b.getChannelData(0).reduce((n, v) => n + v * v, 0);
+        const energies = [];
+        for (const musicTrack of ['warm', 'pulse', 'ambient', 'none']) {
+          const buffer = await makeSoundtrack(3, [1, 2], undefined, {
+            musicTrack,
+            musicVolume: 0.3,
+            effects: false,
+            effectVolume: 0,
+          });
+          const value = energy(buffer);
+          check(musicTrack === 'none' ? value === 0 : value > 1, 'Track is silent or mute ignored');
+          energies.push(value);
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          const samples = buffer.getChannelData(0),
+            bytes = new ArrayBuffer(44 + samples.length * 2),
+            view = new DataView(bytes);
+          const str = (offset, s) =>
+            [...s].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+          str(0, 'RIFF');
+          view.setUint32(4, 36 + samples.length * 2, true);
+          str(8, 'WAVE');
+          str(12, 'fmt ');
+          view.setUint32(16, 16, true);
+          view.setUint16(20, 1, true);
+          view.setUint16(22, 1, true);
+          view.setUint32(24, 44100, true);
+          view.setUint32(28, 88200, true);
+          view.setUint16(32, 2, true);
+          view.setUint16(34, 16, true);
+          str(36, 'data');
+          view.setUint32(40, samples.length * 2, true);
+          samples.forEach((v, i) =>
+            view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 32767, true),
+          );
+          audio.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+          const label = document.createElement('p');
+          label.textContent = musicTrack;
+          document.body.append(label, audio);
+        }
+        check(new Set(energies).size === 4, 'Tracks are identical');
+        document.querySelector('#result').textContent =
+          'PASS fast cursor jump, continuous zoom, cursor follows best match, exact zoom amounts, zoom out, idle reset, three audible distinct tracks and mute';
+      } catch (e) {
+        document.querySelector('#result').textContent = 'FAIL ' + e.message;
+      }
+    </script>
+  </body>
+</html>

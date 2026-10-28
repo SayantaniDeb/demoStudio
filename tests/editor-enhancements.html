@@ -1,0 +1,177 @@
+<!doctype html><meta charset="utf-8" /><title>Editor media checks</title>
+<style>
+  body {
+    font: 15px system-ui;
+    padding: 24px;
+    background: #f4f7ef;
+    color: #26372c;
+  }
+  button {
+    padding: 12px 18px;
+  }
+  video,
+  canvas {
+    max-width: 360px;
+  }
+  pre {
+    white-space: pre-wrap;
+  }
+</style>
+<h1>Editor media checks</h1>
+<button id="run">Run editor checks</button>
+<pre id="results">Ready</pre>
+<video id="preview" controls></video>
+<script type="module">
+  import { joinRecordingSources } from '/src/appendMedia.ts';
+  import { paintCanvasBackground } from '/src/backgrounds.ts';
+  import { renderCaption } from '/src/captions.ts';
+  const results = document.querySelector('#results'),
+    log = (message) => (results.textContent += '\n' + message),
+    assert = (value, message) => {
+      if (!value) throw Error(message);
+      log('PASS: ' + message);
+    };
+  async function clip(color, hz) {
+    const c = document.createElement('canvas');
+    c.width = 320;
+    c.height = 180;
+    const x = c.getContext('2d');
+    x.fillStyle = color;
+    x.fillRect(0, 0, 320, 180);
+    const context = new AudioContext();
+    await context.resume();
+    const oscillator = context.createOscillator(),
+      dest = context.createMediaStreamDestination();
+    oscillator.frequency.value = hz;
+    oscillator.connect(dest);
+    oscillator.start();
+    const stream = c.captureStream(30);
+    dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' }),
+      parts = [];
+    const done = new Promise((resolve) => {
+      recorder.ondataavailable = (e) => parts.push(e.data);
+      recorder.onstop = () => resolve(new Blob(parts, { type: recorder.mimeType }));
+    });
+    recorder.start();
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    recorder.stop();
+    const blob = await done;
+    oscillator.stop();
+    stream.getTracks().forEach((t) => t.stop());
+    await context.close();
+    return URL.createObjectURL(blob);
+  }
+  document.querySelector('#run').onclick = async () => {
+    results.textContent = 'Running…';
+    try {
+      const first = await clip('#ff0000', 440),
+        second = await clip('#0000ff', 660);
+      const joined = await joinRecordingSources(
+        [{ url: first, duration: 0.65 }, { url: second }],
+        () => {},
+      );
+      assert(
+        joined.duration > 1.1 && joined.duration < 1.4,
+        'appended duration includes both clips',
+      );
+      log('Joined file: ' + joined.blob.type + ' ' + joined.blob.size + ' bytes');
+      assert(joined.blob.size > 1000, 'joined file contains video and audio data');
+      const video = document.querySelector('#preview');
+      video.src = URL.createObjectURL(joined.blob);
+      await new Promise((resolve) => (video.onloadeddata = resolve));
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      async function sample(time) {
+        video.currentTime = time;
+        await new Promise((resolve) => (video.onseeked = resolve));
+        ctx.drawImage(video, 0, 0, 320, 180);
+        return [...ctx.getImageData(160, 90, 1, 1).data];
+      }
+      const red = await sample(0.2),
+        blue = await sample(0.95);
+      assert(red[0] > red[2] + 100, 'first clip is preserved');
+      assert(blue[2] > blue[0] + 100, 'second clip appears after first');
+      const audioContext = new AudioContext();
+      const audio = await audioContext.decodeAudioData(await joined.blob.arrayBuffer());
+      log('Audio duration: ' + audio.duration + ' video duration: ' + joined.duration);
+      assert(audio.duration > 1.1, 'joined audio covers both clips');
+      assert(
+        audio.getChannelData(0).some((v) => Math.abs(v) > 0.01),
+        'joined audio retains sound',
+      );
+      await audioContext.close();
+      canvas.width = 1280;
+      canvas.height = 720;
+      renderCaption(ctx, 'Position test', 'classic', undefined, { x: 25, y: 30, scale: 0.6 });
+      let pixels = ctx.getImageData(0, 0, 1280, 720).data,
+        minX = 1280,
+        maxX = 0,
+        minY = 720,
+        maxY = 0;
+      for (let y = 0; y < 720; y++)
+        for (let x = 0; x < 1280; x++)
+          if (pixels[(y * 1280 + x) * 4 + 3]) {
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+          }
+      assert(
+        Math.abs((minX + maxX) / 2 - 320) < 3 && Math.abs((minY + maxY) / 2 - 216) < 3,
+        'caption export uses saved position',
+      );
+      const small = maxY - minY;
+      ctx.clearRect(0, 0, 1280, 720);
+      renderCaption(ctx, 'Position test', 'classic', undefined, { x: 25, y: 30, scale: 1.2 });
+      pixels = ctx.getImageData(0, 0, 1280, 720).data;
+      minY = 720;
+      maxY = 0;
+      for (let y = 0; y < 720; y++)
+        for (let x = 0; x < 1280; x++)
+          if (pixels[(y * 1280 + x) * 4 + 3]) {
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+          }
+      assert(maxY - minY > small * 1.7, 'caption export uses saved size');
+      paintCanvasBackground(ctx, 1280, 720, '#000', 'aurora');
+      const a = ctx.getImageData(0, 0, 1, 1).data,
+        b = ctx.getImageData(1279, 719, 1, 1).data;
+      assert(
+        a.some((v, i) => Math.abs(v - b[i]) > 20),
+        'gradient is rendered into exported canvas',
+      );
+      const held = await joinRecordingSources(
+        [{ url: first, duration: 0.65, holdLastFrameFor: 0.4 }],
+        () => {},
+      );
+      assert(
+        Math.abs(held.duration - 1.05) < 0.001,
+        'camera append extends timeline with a held screen frame',
+      );
+      video.src = URL.createObjectURL(held.blob);
+      await new Promise((resolve) => (video.onloadeddata = resolve));
+      const holdPixel = await sample(0.9);
+      assert(
+        holdPixel[0] > holdPixel[2] + 100,
+        'held screen frame remains visible during appended PIP',
+      );
+      for (const [url, name] of [
+        [first, 'red-clip.webm'],
+        [second, 'blue-clip.webm'],
+      ]) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.textContent = 'Download ' + name;
+        document.body.append(a, document.createElement('br'));
+      }
+      log('ALL CHECKS PASSED');
+    } catch (error) {
+      log('FAIL: ' + error.message);
+      console.error(error);
+    }
+  };
+</script>

@@ -1,11 +1,96 @@
-<!doctype html><html><body><button id="run">Run cursor tests</button><pre id="result">Ready</pre><canvas id="output"></canvas><script type="module">
-import {CursorReplacer,paintCursor} from '/src/cursor.ts';
-document.querySelector('#run').onclick=()=>{try{
-const frame=document.createElement('canvas');frame.width=400;frame.height=240;Object.defineProperties(frame,{videoWidth:{value:400},videoHeight:{value:240},currentTime:{value:0,writable:true}});const ctx=frame.getContext('2d');
-function image(x,y){ctx.fillStyle='#f4f4f4';ctx.fillRect(0,0,400,240);if(x!==null){ctx.save();ctx.translate(x,y);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,24);ctx.lineTo(6,17);ctx.lineTo(12,24);ctx.lineTo(16,21);ctx.lineTo(10,14);ctx.lineTo(19,13);ctx.closePath();ctx.fillStyle='black';ctx.fill();ctx.restore()}}
-image(100,80);const tracker=new CursorReplacer();tracker.calibrate(frame,{time:0,x:100/400,y:80/240,width:22});frame.currentTime=.1;image(126,92);tracker.render(frame,'circle',40);if(tracker.confidence<.94||Math.abs(tracker.x-126)>2||Math.abs(tracker.y-92)>2)throw new Error(`Tracking failed ${tracker.confidence} at ${tracker.x},${tracker.y}`);
-const cleaned=tracker.ctx.getImageData(128,112,1,1).data;if(cleaned[0]<200)throw new Error('Original arrow was not removed');
-frame.currentTime=.2;image(null,0);tracker.render(frame,'circle',40);if(tracker.confidence>=.94)throw new Error('Blank frame falsely matched a cursor');
-const sharp=document.createElement('canvas');sharp.width=1920;sharp.height=1080;Object.defineProperties(sharp,{videoWidth:{value:1920},videoHeight:{value:1080},currentTime:{value:0,writable:true}});const sc=sharp.getContext('2d');sc.fillStyle='#f4f4f4';sc.fillRect(0,0,1920,1080);sc.drawImage(frame,0,0);sc.fillStyle='black';sc.fillRect(101,81,4,25);const native=new CursorReplacer();image(100,80);sc.drawImage(frame,0,0);sc.fillStyle='#ff0000';sc.fillRect(1501,901,1,1);native.calibrate(sharp,{time:0,x:100/1920,y:80/1080,width:22});native.render(sharp,'none',28);if(native.output.width!==1920||native.output.height!==1080)throw new Error('Native resolution lost');const pixel=native.outputCtx.getImageData(1501,901,1,1).data;if(pixel[0]!==255||pixel[1]!==0)throw new Error('Fine detail outside cursor changed');const output=document.querySelector('#output');output.width=400;output.height=240;output.getContext('2d').drawImage(tracker.output,0,0);document.querySelector('#result').textContent='PASS: moving cursor tracked; original arrow pixels removed; blank frame rejected; native 1920×1080 resolution and one-pixel detail preserved.';
-}catch(error){document.querySelector('#result').textContent='FAIL: '+error.message}};
-</script></body></html>
+<!doctype html>
+<html>
+  <body>
+    <button id="run">Run cursor tests</button>
+    <pre id="result">Ready</pre>
+    <canvas id="output"></canvas>
+    <script type="module">
+      import { CursorReplacer, paintCursor } from '/src/cursor.ts';
+      document.querySelector('#run').onclick = () => {
+        try {
+          const frame = document.createElement('canvas');
+          frame.width = 400;
+          frame.height = 240;
+          Object.defineProperties(frame, {
+            videoWidth: { value: 400 },
+            videoHeight: { value: 240 },
+            currentTime: { value: 0, writable: true },
+          });
+          const ctx = frame.getContext('2d');
+          function image(x, y) {
+            ctx.fillStyle = '#f4f4f4';
+            ctx.fillRect(0, 0, 400, 240);
+            if (x !== null) {
+              ctx.save();
+              ctx.translate(x, y);
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(0, 24);
+              ctx.lineTo(6, 17);
+              ctx.lineTo(12, 24);
+              ctx.lineTo(16, 21);
+              ctx.lineTo(10, 14);
+              ctx.lineTo(19, 13);
+              ctx.closePath();
+              ctx.fillStyle = 'black';
+              ctx.fill();
+              ctx.restore();
+            }
+          }
+          image(100, 80);
+          const tracker = new CursorReplacer();
+          tracker.calibrate(frame, { time: 0, x: 100 / 400, y: 80 / 240, width: 22 });
+          frame.currentTime = 0.1;
+          image(126, 92);
+          tracker.render(frame, 'circle', 40);
+          if (
+            tracker.confidence < 0.94 ||
+            Math.abs(tracker.x - 126) > 2 ||
+            Math.abs(tracker.y - 92) > 2
+          )
+            throw new Error(`Tracking failed ${tracker.confidence} at ${tracker.x},${tracker.y}`);
+          const cleaned = tracker.ctx.getImageData(128, 112, 1, 1).data;
+          if (cleaned[0] < 200) throw new Error('Original arrow was not removed');
+          frame.currentTime = 0.2;
+          image(null, 0);
+          tracker.render(frame, 'circle', 40);
+          if (tracker.confidence >= 0.94) throw new Error('Blank frame falsely matched a cursor');
+          const sharp = document.createElement('canvas');
+          sharp.width = 1920;
+          sharp.height = 1080;
+          Object.defineProperties(sharp, {
+            videoWidth: { value: 1920 },
+            videoHeight: { value: 1080 },
+            currentTime: { value: 0, writable: true },
+          });
+          const sc = sharp.getContext('2d');
+          sc.fillStyle = '#f4f4f4';
+          sc.fillRect(0, 0, 1920, 1080);
+          sc.drawImage(frame, 0, 0);
+          sc.fillStyle = 'black';
+          sc.fillRect(101, 81, 4, 25);
+          const native = new CursorReplacer();
+          image(100, 80);
+          sc.drawImage(frame, 0, 0);
+          sc.fillStyle = '#ff0000';
+          sc.fillRect(1501, 901, 1, 1);
+          native.calibrate(sharp, { time: 0, x: 100 / 1920, y: 80 / 1080, width: 22 });
+          native.render(sharp, 'none', 28);
+          if (native.output.width !== 1920 || native.output.height !== 1080)
+            throw new Error('Native resolution lost');
+          const pixel = native.outputCtx.getImageData(1501, 901, 1, 1).data;
+          if (pixel[0] !== 255 || pixel[1] !== 0)
+            throw new Error('Fine detail outside cursor changed');
+          const output = document.querySelector('#output');
+          output.width = 400;
+          output.height = 240;
+          output.getContext('2d').drawImage(tracker.output, 0, 0);
+          document.querySelector('#result').textContent =
+            'PASS: moving cursor tracked; original arrow pixels removed; blank frame rejected; native 1920×1080 resolution and one-pixel detail preserved.';
+        } catch (error) {
+          document.querySelector('#result').textContent = 'FAIL: ' + error.message;
+        }
+      };
+    </script>
+  </body>
+</html>
