@@ -1,5 +1,5 @@
 export type CursorAppearance =
-  'arrow' | 'circle' | 'crosshair' | 'glow' | 'ring' | 'hand' | 'target' | 'none';
+  'ibeam' | 'auto' | 'arrow' | 'circle' | 'crosshair' | 'glow' | 'ring' | 'hand' | 'target' | 'none';
 export type CursorSeed = { time: number; x: number; y: number; width: number };
 export function paintCursor(
   ctx: CanvasRenderingContext2D,
@@ -12,12 +12,20 @@ export function paintCursor(
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = '#fff';
-  ctx.strokeStyle = '#263b22';
-  ctx.lineWidth = Math.max(1, size / 16);
-  ctx.shadowColor = '#0004';
-  ctx.shadowBlur = 3;
+  ctx.strokeStyle = '#25292e';
+  ctx.lineWidth = Math.max(1.2, size / 20);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.shadowColor = '#11182720';
+  ctx.shadowBlur = size * 0.12;
+  ctx.shadowOffsetY = size * 0.04;
   ctx.beginPath();
-  if (style === 'glow') {
+  if (style === 'ibeam') {
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(4, size * .16);
+    const beam = () => { ctx.beginPath(); ctx.moveTo(0,-size*.45); ctx.lineTo(0,size*.45); ctx.moveTo(-size*.17,-size*.45); ctx.lineTo(size*.17,-size*.45); ctx.moveTo(-size*.17,size*.45); ctx.lineTo(size*.17,size*.45); ctx.stroke(); };
+    beam(); ctx.strokeStyle = '#25312b'; ctx.lineWidth = Math.max(1.5,size*.055); beam();
+  } else if (style === 'glow') {
     ctx.shadowBlur = 16;
     ctx.fillStyle = '#fff';
     ctx.arc(0, 0, Math.max(3, size * 0.15), 0, Math.PI * 2);
@@ -60,12 +68,12 @@ export function paintCursor(
     ctx.stroke();
   } else {
     ctx.moveTo(0, 0);
-    ctx.lineTo(0, size);
-    ctx.lineTo(size * 0.27, size * 0.7);
-    ctx.lineTo(size * 0.52, size);
-    ctx.lineTo(size * 0.7, size * 0.9);
-    ctx.lineTo(size * 0.45, size * 0.6);
-    ctx.lineTo(size * 0.8, size * 0.55);
+    ctx.lineTo(size * 0.035, size * 0.82);
+    ctx.lineTo(size * 0.22, size * 0.64);
+    ctx.lineTo(size * 0.39, size);
+    ctx.lineTo(size * 0.54, size * 0.925);
+    ctx.lineTo(size * 0.37, size * 0.565);
+    ctx.lineTo(size * 0.63, size * 0.56);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();

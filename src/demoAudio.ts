@@ -96,18 +96,22 @@ export async function makeSoundtrack(
   return context.startRendering();
 }
 export class DemoAudioPlayer {
+  private generation = 0;
   context?: AudioContext;
   source?: AudioBufferSourceNode;
   async play(buffer: AudioBuffer, offset = 0, destination?: AudioNode) {
     this.stop();
+    const generation = this.generation;
     this.context ??= new AudioContext();
     await this.context.resume();
+    if (generation !== this.generation) return;
     this.source = this.context.createBufferSource();
     this.source.buffer = buffer;
     this.source.connect(destination || this.context.destination);
     this.source.start(0, Math.min(offset, Math.max(0, buffer.duration - 0.001)));
   }
   stop() {
+    this.generation++;
     try {
       this.source?.stop();
     } catch {}

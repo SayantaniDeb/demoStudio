@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict'; import fs from 'node:fs'; import ts from 'typescript';
+const code=ts.transpileModule(fs.readFileSync('src/editHistory.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
+const {editHistory}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const initial={trim:0,clips:['first','second'],scale:1};
+let state={present:initial,past:[],grouping:false,captured:false};
+const send=(action)=>state=editHistory(state,action);
+send({type:'begin'});
+for(let trim=0.1;trim<2;trim+=0.1)send({type:'set',value:old=>({...old,trim})});
+send({type:'end'});
+assert.equal(state.past.length,1,'A full trim drag must be one undo step');
+send({type:'set',value:old=>({...old,clips:['second']})});
+send({type:'undo'});assert.deepEqual(state.present.clips,['first','second']);assert(state.present.trim>1);
+send({type:'undo'});assert.deepEqual(state.present,initial,'Undo must restore the trim before the drag');
+send({type:'set',value:old=>({...old,scale:1.5})});send({type:'undo'});assert.equal(state.present.scale,1);
+send({type:'set',value:old=>({...old})});assert.equal(state.past.length,0,'No-op updates must not create undo entries');
+for(let i=0;i<80;i++)send({type:'set',value:old=>({...old,scale:i+2})});assert.equal(state.past.length,60);
+send({type:'reset'});assert.equal(state.past.length,0);
+console.log('Passed: undo restores deleted clips, groups trim drags, restores layouts, ignores no-ops, and bounds history');

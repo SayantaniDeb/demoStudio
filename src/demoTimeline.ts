@@ -1,6 +1,6 @@
 import { motionChapters, MOTION_DURATION } from './cinematic';
 import type { WebsiteDemo } from './websiteDemo';
-export type DemoSegment = { id: string; start: number; end: number };
+export type DemoSegment = { hidden?: boolean; gap?: boolean; id: string; start: number; end: number; visibleStart?: number; visibleEnd?: number };
 export const defaultSegments = () =>
   motionChapters.map((c, i) => ({
     id: `scene-${i}`,

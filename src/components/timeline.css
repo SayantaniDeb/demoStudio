@@ -86,3 +86,5 @@
 .shared-timeline .shared-timeline-toolbar .timeline-tools {
   margin-left: 0;
 }
+.clip-picture-hidden { background-image:repeating-linear-gradient(135deg,transparent,transparent 7px,#68707824 7px,#68707824 9px)!important; opacity:.65; }
+.clip-picture-hidden::after { content:'Hidden · audio kept';font-size:10px;margin-left:8px;white-space:nowrap; }

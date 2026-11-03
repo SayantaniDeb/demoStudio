@@ -1,0 +1,13 @@
+.caption-design-controls { display:grid;gap:12px;margin:18px 0;padding:14px;border:1px solid #dbe2d3;border-radius:10px;min-width:0; }
+.caption-design-controls legend { padding:0 5px;font-size:12px;font-weight:600; }
+.caption-design-controls label { display:grid;gap:6px;font-size:11px;min-width:0; }
+.caption-design-controls select { width:100%;min-width:0;padding:8px;border:1px solid #d5ddcd;border-radius:6px;background:white;color:#34432b;font:inherit; }
+.caption-design-controls input[type=color] { width:100%;height:32px;padding:3px;border:1px solid #d5ddcd;border-radius:6px;cursor:pointer;background:white; }
+.caption-design-controls input[type=range] { width:100%; }
+.caption-design-pair { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+.caption-design-controls .caption-design-check { display:flex;align-items:center;gap:9px; }
+.caption-design-controls input[type=checkbox] { width:15px;height:15px;accent-color:#88a647; }
+.caption-design-controls small { font-size:10px;line-height:1.6;color:#7c8774; }
+.theme-dark .caption-design-controls,:root[data-demotake-theme=dark] .caption-design-controls { border-color:#3a414b;color:#e2e8f1; }
+.theme-dark .caption-design-controls select,.theme-dark .caption-design-controls input[type=color],:root[data-demotake-theme=dark] .caption-design-controls select,:root[data-demotake-theme=dark] .caption-design-controls input[type=color] { background:#252c35;color:#e2e8f1;border-color:#3a414b; }
+.theme-dark .caption-design-controls small,:root[data-demotake-theme=dark] .caption-design-controls small { color:#aab6c6; }

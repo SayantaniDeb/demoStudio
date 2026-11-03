@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source=fs.readFileSync('src/captions.ts','utf8').replace("import { groqHeaders } from './aiKey';","const groqHeaders=()=>({});");
+const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {generateCaptions}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const audio={duration:125.25,sampleRate:16000,numberOfChannels:1,getChannelData:()=>new Float32Array(125.25*16000).fill(.1)};
+globalThis.AudioContext=class {async close(){}};
+globalThis.OfflineAudioContext=class {createBufferSource(){return {connect(){},start(){}};}async startRendering(){return audio;}};
+let chunks=[];
+globalThis.fetch=async(url,options)=>{const bytes=options.body instanceof ArrayBuffer?options.body:await options.body.arrayBuffer(),length=new DataView(bytes).getUint32(40,true)/2/16000;chunks.push(length);return {ok:true,json:async()=>({language:'hindi',segments:[{start:0,end:length,text:'हिंदी '+chunks.length}],originalSegments:[{start:0,end:length,text:'हिंदी '+chunks.length}]})};};
+let progress=0;
+const result=await generateCaptions(audio,p=>progress=p);
+assert.deepEqual(chunks,[30,30,30,30,5.25]);
+assert.deepEqual(result.map(s=>s.start),[0,30,60,90,120]);
+assert.equal(result.at(-1).end,125.25);assert.equal(progress,100);
+assert.equal(result.length,5);
+console.log('Full 125.25-second audio processed, including final short chunk and correct timestamps.');

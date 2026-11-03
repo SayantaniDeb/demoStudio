@@ -1,0 +1,10 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+const code=ts.transpileModule(fs.readFileSync('src/captions.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace(/^import.*aiKey.*;$/m,'');
+const {renderCaption,captionAppearance}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+function context(){const text=[],fills=[],stack=[];const ctx={canvas:{width:1280,height:720},globalAlpha:1,save(){stack.push({font:this.font,fillStyle:this.fillStyle,globalAlpha:this.globalAlpha,direction:this.direction});},restore(){Object.assign(this,stack.pop());},measureText(value){return {width:[...value].length*20};},beginPath(){},roundRect(){},fill(){fills.push({color:this.fillStyle,opacity:this.globalAlpha});},strokeText(){},fillText(value){text.push({value,font:this.font,color:this.fillStyle,direction:this.direction});}};return {ctx,text,fills};}
+let {ctx,text,fills}=context();renderCaption(ctx,'A clear caption','pill',undefined,undefined,{font:'mono',size:42,weight:'400',italic:true,color:'#ff0044',backgroundColor:'#0044ff',backgroundOpacity:.5});assert(text[0].font.includes('italic 400 42px "Courier New"'));assert.equal(text[0].color,'#ff0044');assert.deepEqual(fills,[{color:'#0044ff',opacity:.5}]);
+({ctx,text,fills}=context());renderCaption(ctx,'No box','classic',undefined,undefined,{background:false});assert.equal(fills.length,0);assert.equal(text.length,1);
+({ctx,text,fills}=context());renderCaption(ctx,'مرحبا بالعالم','classic');assert.equal(text[0].direction,'rtl');
+({ctx,text,fills}=context());renderCaption(ctx,'你好世界'.repeat(20),'classic');assert(text.length>1);assert(text.every(line=>[...line.value].length*20<=1280*.85));
+assert.equal(captionAppearance('bold').background,false);assert.equal(captionAppearance('pill').backgroundOpacity,.94);assert.equal(captionAppearance('classic',{color:'invalid'}).color,'#ffffff');
+console.log('Passed: custom font/weight/italics/colours, background opacity and no-background rendering, RTL and unspaced-script wrapping');

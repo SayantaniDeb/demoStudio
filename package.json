@@ -4,14 +4,19 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "mac:build": "bash scripts/build-mac.sh",
+    "mac:open": "open macos/build/DemoTake.app",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build && node scripts/prerender.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "serve": "node server/run.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "mac:package": "bash scripts/package-mac.sh",
+    "mac:release": "npm run mac:build && npm run mac:package && npm run build"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@remotion/media": "4.0.534",
     "@remotion/player": "4.0.534",
     "@remotion/web-renderer": "4.0.534",
