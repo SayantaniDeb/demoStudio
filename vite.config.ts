@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
   ])
     if (env[key]) process.env[key] = env[key];
   return {
+    base: process.env.DEMOTAKE_NATIVE === '1' ? './' : '/',
     plugins: [
       react(),
       seoPlugin(env.SITE_URL),

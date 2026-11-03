@@ -1,3 +1,4 @@
+import { LoadingView } from './components/LoadingView';
 import { lazy, Suspense } from 'react';
 const HomeFeatureDemo = lazy(() => import('./remotion/HomeFeatureDemo'));
 import {
@@ -12,37 +13,41 @@ import {
   Image,
   Film,
   Sparkles,
-  Globe,
   Download,
+  Upload,
   ShieldCheck,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import './home.css';
-type Mode = 'screen' | 'camera' | 'edit' | 'animate' | 'website' | 'image' | 'templates';
+import { isNativeMac } from './nativeMac';
+type Mode = 'media' | 'screen' | 'camera' | 'edit' | 'animate' | 'website' | 'image' | 'templates';
 export function HomePage({
   onOpen,
   hasProject,
+  dark = true,
+  onThemeChange,
 }: {
   onOpen: (mode: Mode) => void;
   hasProject: boolean;
+  dark?: boolean;
+  onThemeChange?: () => void;
 }) {
+  const native = typeof window !== 'undefined' && isNativeMac();
   const tools = [
     {
       icon: Monitor,
       title: 'Screen Demo Studio',
-      text: 'Record your screen with camera and microphone, edit the timeline, and export a polished demo.',
+      text: 'Record, edit and export screen demos right in your web browser. Prefer a dedicated window? Install DemoTake as a web app and keep the same studio close at hand. A notarized Mac release is coming soon; the unnotarized developer preview is available now.',
+      features: ['Screen, camera & microphone', 'Timeline, zooms & captions', 'Landscape & vertical video'],
+      action: 'Try here',
       mode: 'screen' as Mode,
       tag: 'RECORD & EDIT',
     },
-    {
-      icon: Globe,
-      title: 'Website Link to Video',
-      text: 'Turn a public website link into an animated storyboard, review its scenes, and export your video.',
-      mode: 'website' as Mode,
-      tag: 'LINK TO VIDEO',
-    },
+
   ];
   return (
-    <div className="frame-home">
+    <div className={`frame-home home-glass ${dark ? 'home-dark' : 'home-light'}`}>
       <header className="home-nav">
         <a href="/" className="home-brand">
           <Film size={25} />
@@ -50,19 +55,23 @@ export function HomePage({
             DemoTake<span className="home-beta">BETA</span>
           </span>
         </a>
-        <nav aria-label="Home navigation">
-          <a href="#features">Explore features</a>
-          <button onClick={() => onOpen('edit')}>
-            {hasProject ? 'Open your workspace' : 'Open studio'}
-            <ArrowUpRight size={16} />
-          </button>
-        </nav>
+        <nav aria-label="Home navigation" className="home-reference-pill"><Film size={19}/><a href="#studio-tour">The studio</a><a href="#screen-studio" onClick={(event) => { event.preventDefault(); onOpen('screen'); }}>Web version</a><a href="#download-mac">Mac app</a></nav>
+        <button className="home-theme-toggle" aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={onThemeChange}>{dark?<Sun size={16}/>:<Moon size={16}/>}</button>
       </header>
       <main>
-        <section className="home-hero">
+        {!native&&<section className="home-intro"><h1>Make more of every take.</h1></section>}
+
+        <section id="studio-tour" className="home-hero">
           <div className="home-hero-copy">
+            {!native && <div className="home-studio-note">
+              <span className="home-eyebrow">FROM FILE TO FINISHED</span>
+              <h2>A little polish. A lot of possibility.</h2>
+              <p>Bring your footage. Shape the edit, add captions and make it yours.</p>
+              <span className="home-tour-hint">Explore the demo below →</span>
+            </div>}
+            {native && <>
             <span className="home-eyebrow">
-              <span /> SCREEN RECORDER & WEBSITE DEMO MAKER
+              <span /> SCREEN RECORDER & VIDEO EDITOR
             </span>
             <h1>
               Capture it.
@@ -72,40 +81,37 @@ export function HomePage({
               <span>Make it clear.</span>
             </h1>
             <p>
-              From a quick recording to a polished product demo. Record and edit your screen, or
-              turn a website link into a video.
+              Record a product walkthrough, edit your footage and export a demo.
+              Your screen, camera and editing tools, together in one studio.
             </p>
-            <div className="home-cta">
+            </>}
+            {native && <div className="home-cta">
               <button onClick={() => onOpen('screen')}>
-                Start recording
+                {native ? 'Start recording' : 'Open Screen Demo Studio'}
                 <ArrowRight size={18} />
               </button>
-              <button onClick={() => onOpen('website')}>
-                Website Link to Video
-                <ArrowUpRight size={17} />
-              </button>
-            </div>
+
+            </div>}
             <div className="home-local">
               <ShieldCheck size={15} /> Media editing and rendering stay on your device.
             </div>
           </div>
-          <Suspense fallback={<div className="home-feature-demo">Loading feature tour…</div>}>
-            <HomeFeatureDemo />
-          </Suspense>
+          <div className="home-preview-glass"><div className="home-preview-chrome"><span><i/><i/><i/></span><small>DemoTake / a little look inside</small><Film size={13}/></div><Suspense fallback={<LoadingView label="Loading feature tour…"/>}>
+            <HomeFeatureDemo dark={dark} mode={native ? "screen" : "file"} />
+          </Suspense></div>
         </section>
         <section id="features" className="home-features">
           <div className="home-section-heading">
             <div>
-              <span className="home-eyebrow">ONE WORKSPACE. MANY POSSIBILITIES.</span>
-              <h2>Record your screen or turn a website into video</h2>
+              <span className="home-eyebrow">YOUR STUDIO. RIGHT IN YOUR BROWSER.</span>
+              <h2>See what you can make on the web.</h2>
             </div>
             <p>
-              Pick a starting point.
-              <br />
-              Make it your own.
+              Use Screen Demo Studio on the web, or install it as a web app.
+              Start creating now—no Mac download required.
             </p>
           </div>
-          <div className="home-feature-grid">
+          <div className="home-feature-grid home-feature-grid-single">
             {tools.map((tool) => (
               <button className="home-feature" key={tool.title} onClick={() => onOpen(tool.mode)}>
                 <div className="home-feature-top">
@@ -115,14 +121,38 @@ export function HomePage({
                 </div>
                 <h3>{tool.title}</h3>
                 <p>{tool.text}</p>
+                <ul className="home-web-capabilities">{tool.features.map(feature => <li key={feature}><ShieldCheck size={13} />{feature}</li>)}</ul>
                 <span className="home-feature-link">
-                  Open workspace
+                  {native ? 'Open workspace' : tool.action}
                   <ArrowRight size={15} />
                 </span>
               </button>
             ))}
           </div>
         </section>
+
+        {!native && <section id="download-mac" className="home-mac-download" aria-labelledby="download-mac-title">
+          <div className="home-mac-copy">
+            <span className="home-eyebrow">DEMOTAKE FOR MAC</span>
+            <h2 id="download-mac-title">Your studio. Right on your Mac.</h2>
+            <ul className="home-mac-features" aria-label="Mac app features">
+              <li><Monitor size={17} /><span><strong>Native screen capture</strong><span>Record product walkthroughs directly on your Mac.</span></span></li>
+              <li><Film size={17} /><span><strong>Local recording library</strong><span>Keep your recordings organized and saved on your device.</span></span></li>
+              <li><Layers size={17} /><span><strong>A dedicated desktop studio</strong><span>Capture, edit and export in one Mac app.</span></span></li>
+            </ul>
+            <div className="home-mac-download-action">
+              <a className="home-mac-primary" href="/downloads/DemoTake-Mac-AppleSilicon.dmg" download><Download size={18} /> Download developer preview</a>
+              <span className="home-mac-status">Notarized release coming soon</span>
+            </div>
+            <small>Version 0.1.0 · Apple silicon · macOS 15 or later</small>
+            <p className="home-mac-preview-note">This developer preview is not notarized by Apple. macOS may block its first launch and require approval in Privacy &amp; Security. You can also keep using DemoTake in your browser or as a web app.</p>
+          </div>
+          <ol className="home-mac-steps">
+            <li><span>01</span><div><h3>Download the developer preview</h3><p>Open the downloaded disk image.</p></div></li>
+            <li><span>02</span><div><h3>Drag into Applications</h3><p>Move DemoTake to Applications, then open it from there.</p></div></li>
+            <li><span>03</span><div><h3>Approve the first launch</h3><p>If macOS blocks DemoTake, click Done. Open System Settings → Privacy &amp; Security and choose Open Anyway for DemoTake. Only approve a build you trust. <a href="https://support.apple.com/en-gb/102445" target="_blank" rel="noreferrer">Apple’s opening instructions</a></p></div></li>
+          </ol>
+        </section>}
         <section className="home-finishing">
           <div>
             <span className="home-eyebrow">THE FINISHING TOUCHES</span>
@@ -179,6 +209,10 @@ export function HomePage({
         <section className="home-faq" aria-labelledby="home-faq-title">
           <h2 id="home-faq-title">Create product demos in your browser</h2>
           <details>
+            <summary>Do I need the Mac app to use DemoTake?</summary>
+            <p>No. Screen Demo Studio works in a supported desktop browser. You can also install DemoTake as a web app for a dedicated window. A notarized Mac release is coming soon; the unnotarized developer preview is available now.</p>
+          </details>
+          <details>
             <summary>How do I record a screen demo?</summary>
             <p>
               Open Screen Demo Studio in a desktop browser, choose your screen, camera and
@@ -186,18 +220,14 @@ export function HomePage({
             </p>
           </details>
           <details>
-            <summary>Can I turn a website link into a video?</summary>
-            <p>
-              Open Website Link to Video, paste a public URL, choose a duration and describe your
-              creative direction. Review and edit the generated scenes before exporting.
-            </p>
+            <summary>Can I install DemoTake as a web app?</summary>
+            <p>Yes. In a supported browser, choose Install DemoTake from the address bar or browser menu. In Safari on Mac, choose File → Add to Dock. You can keep using Screen Demo Studio in a regular browser tab too.</p>
           </details>
           <details>
             <summary>Does my footage stay on my device?</summary>
             <p>
               Media editing and video rendering happen on your device. AI features use Groq: speech
-              captions send selected audio for transcription, and website animation sends a text
-              brief through the app’s server.
+              captions send selected audio for transcription and translation.
             </p>
           </details>
           <details>
@@ -211,20 +241,24 @@ export function HomePage({
         <section className="home-bottom-cta">
           <div>
             <h2>One idea is all you need.</h2>
-            <p>Open the studio and start putting it together.</p>
+            <p>Open File Studio and start creating. No download required.</p>
           </div>
-          <button onClick={() => onOpen('edit')}>
+          <button onClick={() => onOpen(native ? 'edit' : 'media')}>
             Let’s make something
             <ArrowRight size={18} />
           </button>
         </section>
       </main>
+        {!native&&<div className="home-glass-dock home-curved-dock"><button onClick={()=>onOpen('media')}>Open file studio <ArrowUpRight size={15}/></button></div>}
+
+
       <footer>
         <span className="home-brand">
           <Film size={19} />
           DemoTake
         </span>
-        <p>AI features use Groq. Website demos use public page content.</p>
+        <p>AI captions use Groq. Editing and rendering stay on your device.</p>
+        {!native && <a href="#download-mac">Download Mac developer preview</a>}
         <span>A small studio for big ideas.</span>
       </footer>
     </div>

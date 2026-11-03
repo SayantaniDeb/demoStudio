@@ -11,6 +11,10 @@ npm run dev
 
 Open the localhost URL in desktop Chrome. Capture requires localhost or HTTPS and explicit browser permission. Production builds register the offline service worker (`npm run build`, then `npm run preview`).
 
+### Mac app with direct-to-disk recording
+
+On macOS 15+, run `npm run mac:build`, then `npm run mac:open`. The local app bundles the existing editor and records screens through ScreenCaptureKit directly to its private local recording library. Use **Stop & save to library**, then **Edit recording**, or reopen recordings from **Library**. Choose **Export video** to save a finished copy outside the app. Original recordings remain in the app library even if the editor's browser cache is full. This is an initial local Mac build: bundled AI/server features are not included. Native Camera controls record a separate local webcam track and attach it to the editor; see the Mac notes for current capture and sync limits. See [Mac build instructions and limitations](macos/README.md).
+
 ## Implemented
 
 - Screen recording with optional camera and microphone, stored as separate video tracks.

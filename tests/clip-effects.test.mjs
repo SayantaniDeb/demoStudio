@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const code=ts.transpileModule(fs.readFileSync('src/clipEffects.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {editClipEffects,clipEffectSettings}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const clips=[{id:'first',start:0,end:5},{id:'second',start:5,end:10}];
+const original={autoZoom:false,cursorStyle:'arrow',showCursor:true,zoom:1};
+const first=editClipEffects(original,clips,'first',{autoZoom:true,zoomSource:'cursor',showCursor:false,cursorStyle:'hand'});
+assert.equal(clipEffectSettings(first,'first').autoZoom,true);
+assert.equal(clipEffectSettings(first,'second').autoZoom,false);
+assert.equal(clipEffectSettings(first,'second').cursorStyle,'arrow');
+assert.equal(first.autoZoom,false);
+const second=editClipEffects(first,clips,'second',{cursorStyle:'ibeam',showCursor:true});
+assert.equal(clipEffectSettings(second,'first').cursorStyle,'hand');
+assert.equal(clipEffectSettings(second,'first').showCursor,false);
+assert.equal(clipEffectSettings(second,'second').cursorStyle,'ibeam');
+assert.equal(original.clipEffects,undefined);
+console.log('Cursor follow, visibility and shape edits stay isolated between clips without changing project defaults.');

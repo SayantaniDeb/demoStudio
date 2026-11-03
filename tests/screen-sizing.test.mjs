@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const code=ts.transpileModule(fs.readFileSync('src/layoutGeometry.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ES2022}}).outputText;
+const {screenMediaScale}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+for (const source of [{width:1920,height:1080},{width:1080,height:1920},{width:1000,height:1000},{width:2560,height:1080}]) {
+ const frame={width:1150,height:620};
+ const fit=screenMediaScale(source,frame,true);
+ assert(source.width*fit<=frame.width+.001 && source.height*fit<=frame.height+.001);
+ const cover=screenMediaScale(source,frame,false);
+ const fill=Math.max(1280/1150,720/620);
+ assert(source.width*cover*fill>=1280 && source.height*cover*fill>=720);
+ assert.equal((source.width*fit)/(source.height*fit),source.width/source.height);
+}
+console.log('Passed: fit contains the full source and fill covers the desktop canvas without stretching for landscape, portrait, square, and ultrawide media');
+const {zoomedScreenBounds}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const frame={x:65,y:50,width:1150,height:620},canvas={width:1280,height:720};
+assert.deepEqual(zoomedScreenBounds(frame,canvas,1),frame);
+const mid=zoomedScreenBounds(frame,canvas,1.1);assert(mid.width>frame.width);assert(mid.x<frame.x);
+assert.deepEqual(zoomedScreenBounds(frame,canvas,1.7),{x:0,y:0,width:1280,height:720});
+assert.deepEqual(zoomedScreenBounds(frame,canvas,1),frame);
+console.log('Passed: zoom expands through padding, remains within canvas, fills it at larger zoom, and returns to original framing');
+const {expandedMediaOffset}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+assert.equal(expandedMediaOffset(0,1280,1800,65),0);
+assert.equal(expandedMediaOffset(0,1280,1800,-900),-520);
+assert.equal(expandedMediaOffset(0,1280,1000,-100),140);
+console.log('Passed: focus near canvas edges cannot expose unintended padding, and smaller media stays centered');
+const {mobileZoomPlacement}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const mobileBase={x:0,y:400,scale:.56},focus={x:75,y:30};
+assert.deepEqual(mobileZoomPlacement(mobileBase,1,focus),mobileBase);
+const phoneZoom=mobileZoomPlacement(mobileBase,2,focus);
+assert.equal(phoneZoom.scale,1.12);
+const anchor=65+1150*.75;
+assert(Math.abs((phoneZoom.x+anchor*phoneZoom.scale)-(mobileBase.x+anchor*mobileBase.scale))<.0001);
+console.log('Passed: mobile zoom grows the video in the portrait canvas, preserves the focal anchor, and returns to the inset layout');

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const text=fs.readFileSync('src/components/ClipWaveform.tsx','utf8').replace("import {useEffect,useState} from 'react';",'const useEffect=()=>{},useState=()=>{};');
+const code=ts.transpileModule(text,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React}}).outputText;
+const {waveformPeaks}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const samples=new Float32Array(3200);samples.fill(.5,1600);
+const buffer={sampleRate:1600,duration:2,length:3200,numberOfChannels:1,getChannelData:()=>samples};
+const full=waveformPeaks(buffer);assert.equal(full.length,160);assert(full.slice(0,80).every(p=>p===0));assert(full.slice(80).every(p=>p===.5));assert(waveformPeaks(buffer,1,2).every(p=>p===.5));
+console.log('Waveforms reflect actual audio peaks and selected source ranges.');

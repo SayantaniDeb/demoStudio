@@ -4521,3 +4521,11 @@ footer {
 .control-section[hidden] {
   display: none;
 }
+
+/* Layout controls use borders and spacing instead of heavy elevation. */
+.arrange-panel, .arrange-target-tabs button, .display-arrange-box, .display-arrange-box > span, .video-frame {
+  box-shadow: none;
+}
+.layout-size-presets { display: flex; gap: 8px; padding: 8px 0 0; }
+.layout-size-presets button { border: 1px solid #9aa18d; border-radius: 6px; padding: 6px 12px; background: transparent; color: inherit; cursor: pointer; }
+.layout-size-presets button:hover { background: #8ca66022; }

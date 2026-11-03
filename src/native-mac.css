@@ -1,0 +1,10 @@
+.native-mac .capture-bar,
+.native-mac .capture-cursor-note,
+.native-mac .groq-key-panel,
+.native-mac .header-cloud {
+  display: none;
+}
+
+.native-mac body {
+  background: #f7f8f4;
+}

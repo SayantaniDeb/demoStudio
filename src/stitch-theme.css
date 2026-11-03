@@ -3651,3 +3651,1158 @@ footer {
 .caption-popup .caption-transform-controls input {
   width: 100%;
 }
+
+/* Reserve the same append column for both media lanes. */
+.stitch-editor .track, .stitch-editor .camera-timeline-row {
+  display: grid;
+  grid-template-columns: var(--timeline-label-width, 166px) minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 0;
+}
+.stitch-editor .camera-timeline-row .camera-append-button,
+.stitch-editor .track > .lane-append-button {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: center;
+  align-self: center;
+  margin: 0;
+  display: grid;
+  place-items: center;
+}
+.stitch-editor .camera-timeline-row > .camera-linked-track { grid-column: 2; grid-row: 1; }
+.stitch-editor .camera-timeline-row > .timeline-track-name { grid-column: 1; grid-row: 1; }
+.stitch-editor .segment-track { min-width: 0; }
+.screen-clip-slot { position: relative; min-width: 0; height: 34px; border-radius: 5px; background: #819e3909; }
+.stitch-editor .screen-clip-slot > .timeline-segment { position: absolute; top: 0; display: flex; align-items: center; overflow: hidden; box-sizing: border-box; }
+
+.stitch-editor .stage-heading .save-project-name { flex: 0 0 auto; white-space: nowrap; border: 1px solid #ccd4c1; border-radius: 7px; padding: 8px 12px; background: #f7faef; color: #354529; font-size: 12px; }
+.stitch-editor .stage-heading .save-project-name:disabled { opacity: .5; cursor: default; }
+
+.timeline-navigation { min-width: 0; max-width: 100%; }
+.timeline-viewport { overflow-x: auto; overflow-y: hidden; width: 100%; overscroll-behavior-x: contain; scrollbar-gutter: stable; }
+.timeline-zoom-content { min-width: 0; }
+.timeline-scale-controls { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-bottom: 1px solid #dedee6; }
+.timeline-scale-controls button { border: 1px solid #dedee6; border-radius: 6px; background: #fff; color: #354529; min-width: 30px; padding: 4px 8px; cursor: pointer; }
+.timeline-scale-controls button:disabled { opacity: .35; cursor: default; }
+.timeline-scale-controls span { flex: 1; font-size: 11px; color: #777782; }
+.timeline-zoom-content .timeline-track-name { position: sticky; left: 0; z-index: 5; background: #f8f7fc; }
+.shared-timeline { min-width: 0; max-width: 100%; }
+
+/* Keep track chrome full width; only timed content contracts below Fit. */
+.timeline-zoom-content { --timeline-clip-scale: 1; }
+.stitch-editor .timeline-zoom-content .segment-track,
+.stitch-editor .timeline-zoom-content .camera-linked-track,
+.stitch-editor .timeline-zoom-content .editor-lane-slots {
+  width: calc(100% * var(--timeline-clip-scale));
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.stitch-editor .timeline-zoom-content .ruler {
+  width: calc((100% - var(--timeline-label-width) - 44px) * var(--timeline-clip-scale));
+  box-sizing: border-box;
+}
+.stitch-editor .timeline-zoom-content .lane-append-button,
+.stitch-editor .timeline-zoom-content .camera-append-button {
+  position: sticky;
+  right: 6px;
+  z-index: 6;
+}
+.stitch-editor .timeline-zoom-content .editor-lane-slots { width: calc((100% - var(--timeline-label-width)) * var(--timeline-clip-scale)); }
+.stitch-editor .timeline-zoom-content .editor-lane-slots:has(> .lane-add-clip) { width: calc(100% - var(--timeline-label-width)); }
+
+/* Pointer studio: previews use the same renderer as the exported cursor. */
+.stitch-editor .manual-pointer-controls { padding: 4px 0; }
+.stitch-editor .pointer-design-row { align-items: center; gap: 24px; flex-wrap: wrap; padding: 18px 0 6px; }
+.stitch-editor .pointer-shape-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.stitch-editor .pointer-shape-options button { width: 76px; height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1px solid #e4e8e1; border-radius: 12px; background: #fafbf8; color: #566151; padding: 5px; transition: background .16s, border-color .16s; box-shadow: none; }
+.stitch-editor .pointer-shape-options button span { font-size: 10px; line-height: 16px; font-weight: 500; white-space: nowrap; }
+.stitch-editor .pointer-shape-options button[aria-pressed='true'] { border-color: #819e39; background: #eff5e2; color: #354b25; box-shadow: inset 0 0 0 1px #819e39; }
+.stitch-editor .pointer-shape-options button:hover { background: #f0f3eb; border-color: #aab99a; }
+.stitch-editor .pointer-shape-options button > svg { margin: 10px 0 11px; }
+.stitch-editor .pointer-tool-buttons .button { border-radius: 8px; font-weight: 500; box-shadow: none; }
+.stitch-editor .pointer-size-control { margin-left: auto; padding: 12px 14px; border-radius: 10px; background: #f7f8f4; gap: 10px; font-size: 12px; }
+.stitch-editor .pointer-size-control input { accent-color: #819e39; }
+.stitch-editor .pointer-help { margin-top: 16px; font-size: 12px; color: #7c8377; }
+
+.stitch-editor .timeline-zoom-content .ruler { width: calc(100% - var(--timeline-label-width) - 44px); height: 36px; position: relative; overflow: hidden; background: #f0eff6; border-bottom: 1px solid #dedee6; padding: 0; display: block; }
+.stitch-editor .ruler .timeline-tick-probe { position: absolute; width: 0; height: 0; }
+.stitch-editor .ruler .timeline-time-tick { position: absolute; bottom: 0; width: 1px; height: 5px; background: #c8c9d2; padding: 0; }
+.stitch-editor .ruler .timeline-time-tick.major { height: 9px; background: #a5a8b4; }
+.stitch-editor .ruler .timeline-time-tick > span { position: absolute; bottom: 12px; left: 5px; font: 10px ui-monospace, SFMono-Regular, monospace; color: #737784; white-space: nowrap; }
+.stitch-editor .ruler .ruler-playhead { z-index: 3; }
+
+.stitch-editor .timeline-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 14px; min-height: 40px; box-sizing: border-box; border-top: 1px solid #e2e3e8; background: #fcfcfd; margin: 0; }
+.stitch-editor .timeline-actions > span { display: flex; align-items: center; gap: 7px; color: #92969f; font-size: 11px; font-weight: 400; line-height: 1.4; }
+.stitch-editor .timeline-actions > span i { font-style: normal; color: #c4c7ce; margin: 0 3px; }
+.stitch-editor .timeline-actions button { flex: 0 0 auto; border: 0; background: transparent; color: #727782; padding: 5px 8px; min-height: 26px; border-radius: 5px; font-size: 11px; box-shadow: none; }
+.stitch-editor .timeline-actions button:hover { background: #eff0f3; color: #333b46; }
+.stitch-editor .timeline-gap-slot { background: transparent; border-radius: 0; }
+.stitch-editor .timeline-gap-slot > .timeline-segment { display: none; }
+.stitch-editor .timeline-zoom-content .segment-track { cursor: crosshair; }
+.stitch-editor .save-cursor-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 14px; border: 1px solid #a3b86d; border-radius: 8px; background: #eaf2d9; color: #354b25; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: none; }
+.stitch-editor .save-cursor-button:hover { background: #dfecc7; }
+.stitch-editor .save-cursor-button:focus-visible { outline: 2px solid #819e39; outline-offset: 3px; }
+.stitch-editor .cursor-timeline-slots { min-height: 44px; align-items: center; }
+.cursor-timeline-slot { position: relative; height: 30px; min-width: 0; }
+.stitch-editor .cursor-timeline-clip { position: absolute; top: 0; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; min-width: 0; box-sizing: border-box; border: 1px solid #d4dccb; border-radius: 7px; background: #eaf0e3; color: #526443; cursor: pointer; text-align: left; box-shadow: none; overflow: hidden; }
+.cursor-timeline-clip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.cursor-timeline-clip > svg { flex-shrink: 0; }
+.cursor-timeline-clip .cursor-track-saved { margin-left: auto; color: #819e39; }
+.stitch-editor .cursor-timeline-clip:hover { background: #dfe9d4; border-color: #a1b78a; }
+
+/* Feature controls live in the inspector, keeping the preview geometry stable. */
+.stitch-editor .inspector { max-height: calc(100dvh - 100px); overflow-y: auto; position: sticky; top: 0; }
+#feature-inspector:empty { display: none; }
+.feature-inspector-panel { border-bottom: 1px solid #e2e5dc; padding: 14px; background: #fbfcf8; }
+.stitch-editor .feature-inspector-panel .arrange-panel,
+.stitch-editor .feature-inspector-panel .lane-inline-editor,
+.stitch-editor .feature-inspector-panel .timeline-pointer-tools { margin: 0; padding: 0; width: 100%; border: 0; border-radius: 0; box-shadow: none; min-width: 0; }
+.feature-inspector-panel .arrange-fields { grid-template-columns: 1fr; }
+.feature-inspector-panel .pointer-shape-options { gap: 5px; }
+.stitch-editor .feature-inspector-panel .pointer-shape-options button { width: 66px; height: 72px; }
+.feature-inspector-panel .pointer-design-row, .feature-inspector-panel .pointer-tool-buttons { flex-wrap: wrap; gap: 7px; }
+.stitch-editor .feature-inspector-panel .pointer-size-control { margin-left: 0; width: 100%; }
+.feature-inspector-panel .pointer-tool-buttons .button { font-size: 11px; padding: 7px; }
+.feature-inspector-panel .pointer-motion-tabs { flex-wrap: wrap; }
+.stitch-editor .fullscreen-preview-toggle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid #dadde2; background: #fff; border-radius: 7px; color: #555e4c; cursor: pointer; }
+.stitch-editor .preview-fullscreen.editor { position: fixed; inset: 0; z-index: 10000; display: block; background: #111; overflow: hidden; }
+.stitch-editor .preview-fullscreen .inspector,
+.stitch-editor .preview-fullscreen .stage-area > :not(.studio-preview-stage):not(.transport) { display: none !important; }
+.stitch-editor .preview-fullscreen .stage-area { height: 100dvh; display: flex; flex-direction: column; background: #111; }
+.stitch-editor .preview-fullscreen .studio-preview-stage { flex: 1; min-height: 0; width: 100%; height: calc(100dvh - 60px); max-height: none; margin: 0; border-radius: 0; background: #111; }
+.stitch-editor .preview-fullscreen .composition-preview { width: 100%; height: 100%; object-fit: contain; max-height: 100%; }
+.stitch-editor .preview-fullscreen .transport { flex: 0 0 60px; }
+.stitch-editor .preview-fullscreen .transport .import-link, .stitch-editor .preview-fullscreen .transport .preview-label { display: none; }
+.stitch-editor .preview-fullscreen .fullscreen-preview-toggle { margin-left: auto; order: 10; }
+.feature-inspector-panel .clip-volume-strip { position: static; display: flex; flex-wrap: wrap; padding: 0; border: 0; box-shadow: none; }
+.feature-inspector-panel .arrange-inputs, .feature-inspector-panel .layout-fields { grid-template-columns: 1fr; }
+.caption-popup { position: fixed; left: auto; right: 12px; top: 80px; bottom: 12px; margin: 0; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 100px); overflow-y: auto; }
+
+/* Native webview is the available window area: never grow beyond it. */
+body.native-mac-editor, .native-mac-editor #root { margin: 0; width: 100%; height: 100dvh; overflow: hidden; }
+.native-mac-editor .app.stitch-editor { width: 100%; max-width: 100%; min-width: 0; height: 100dvh; overflow: hidden; padding: 0; box-sizing: border-box; }
+.native-mac-editor .stitch-editor .editor:not(.preview-fullscreen) { height: 100dvh; max-height: 100dvh; width: 100%; grid-template-columns: minmax(0,1fr) minmax(240px, 300px); overflow: hidden; }
+.native-mac-editor .stitch-editor .stage-area { height: 100%; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.native-mac-editor .stitch-editor .stage-heading, .native-mac-editor .stitch-editor .transport { flex-shrink: 0; }
+.native-mac-editor .stitch-editor .stage:not(.preview-fullscreen .stage) { flex: 1 1 auto; min-height: 100px; max-height: 48dvh; }
+.native-mac-editor .stitch-editor .shared-timeline { flex: 0 1 42dvh; min-height: 150px; overflow-y: auto; overflow-x: hidden; }
+.native-mac-editor .stitch-editor .inspector { height: 100dvh; max-height: 100dvh; overflow-y: auto; min-width: 0; }
+.stitch-editor .preview-fullscreen .studio-preview-stage { aspect-ratio: auto !important; padding: 0 !important; display: grid; place-items: center; }
+.stitch-editor .preview-fullscreen .composition-preview { position: static !important; inset: auto !important; transform: none !important; margin: auto; width: min(100vw, calc((100dvh - 60px) * var(--preview-ratio))) !important; height: auto !important; max-width: 100%; max-height: calc(100dvh - 60px); aspect-ratio: var(--preview-ratio); object-fit: contain; }
+.stitch-editor .preview-fullscreen .video-frame, .stitch-editor .preview-fullscreen .display-arrange-overlay, .stitch-editor .preview-fullscreen .facecam { display: none !important; }
+.native-mac-editor .stitch-editor .preview-fullscreen .studio-preview-stage { flex: 1; max-height: none; min-height: 0; }
+.native-mac-editor .app.stitch-editor > main { padding: 0; margin: 0; width: 100%; max-width: none; height: 100dvh; overflow: hidden; }
+.native-mac-editor .stitch-editor .editor:not(.preview-fullscreen) { position: fixed; inset: 0; z-index: 4; }
+.native-mac-editor .stitch-editor .stage-heading { padding: 8px 12px; }
+.native-mac-editor .stitch-editor .stage-heading input { min-width: 0; }
+.stitch-editor .preview-fullscreen .studio-preview-stage { max-width: none !important; width: 100% !important; background: #111 !important; border-radius: 0 !important; box-shadow: none !important; }
+
+/* Always-visible, generous scrollbar tracks for the editing surfaces. */
+.stitch-editor .timeline-viewport { overflow-x: auto; scrollbar-gutter: auto; }
+.stitch-editor .shared-timeline, .stitch-editor .inspector { overflow-y: scroll; scrollbar-gutter: stable; }
+.stitch-editor .timeline-viewport::-webkit-scrollbar,
+.stitch-editor .shared-timeline::-webkit-scrollbar,
+.stitch-editor .inspector::-webkit-scrollbar { width: 13px; height: 14px; background: #e8ebe4; }
+.stitch-editor .timeline-viewport::-webkit-scrollbar-track,
+.stitch-editor .shared-timeline::-webkit-scrollbar-track,
+.stitch-editor .inspector::-webkit-scrollbar-track { background: #e8ebe4; border: 1px solid #d8ddcf; border-radius: 8px; }
+.stitch-editor .timeline-viewport::-webkit-scrollbar-thumb,
+.stitch-editor .shared-timeline::-webkit-scrollbar-thumb,
+.stitch-editor .inspector::-webkit-scrollbar-thumb { background: #91a372; border: 3px solid #e8ebe4; border-radius: 9px; min-width: 48px; min-height: 48px; }
+.stitch-editor .timeline-viewport::-webkit-scrollbar-thumb:hover,
+.stitch-editor .shared-timeline::-webkit-scrollbar-thumb:hover,
+.stitch-editor .inspector::-webkit-scrollbar-thumb:hover { background: #647d43; }
+.stitch-editor ::-webkit-scrollbar-corner { background: #e8ebe4; }
+.theme-toggle { flex: 0 0 32px; width: 32px; height: 32px; border: 1px solid #55565e; border-radius: 8px; background: #282930; color: #eee; font-size: 22px; cursor: pointer; }
+.clip-waveform { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .25; fill: currentColor; }
+.timeline-segment .clip-label, .timeline-segment > svg:not(.clip-waveform), .clip-duration { position: relative; z-index: 1; }
+.clip-duration { margin-left: auto; margin-right: 10px; font: 10px ui-monospace, monospace; white-space: nowrap; }
+.theme-dark { color-scheme: dark; --timeline-ink: #d8d9e2; }
+.stitch-editor.theme-dark, .stitch-editor.theme-dark main, .stitch-editor.theme-dark .stage-area { background: #101114; color: #e2e3eb; }
+.stitch-editor.theme-dark .inspector, .stitch-editor.theme-dark .feature-inspector-panel { background: #191b21; color: #dddfe8; border-color: #2c2f39; }
+.stitch-editor.theme-dark .inspector-section-title, .stitch-editor.theme-dark .control-section, .stitch-editor.theme-dark .arrange-panel { background: #191b21; color: #dddfe8; border-color: #30333c; }
+.stitch-editor.theme-dark .inspector h3, .stitch-editor.theme-dark .inspector h4, .stitch-editor.theme-dark .inspector label, .stitch-editor.theme-dark .inspector summary { color: #d9dbe6; }
+.stitch-editor.theme-dark .transport, .stitch-editor.theme-dark .timeline-toolbar, .stitch-editor.theme-dark .timeline-scale-controls, .stitch-editor.theme-dark .timeline-actions { background: #13151a; color: #d8dae4; border-color: #30323b; }
+.stitch-editor.theme-dark .shared-timeline, .stitch-editor.theme-dark .track, .stitch-editor.theme-dark .editor-lane, .stitch-editor.theme-dark .camera-timeline-row, .stitch-editor.theme-dark .editor-detail-tracks { background: #101216; border-color: #272a34; color: #c8cbd7; }
+.stitch-editor.theme-dark .timeline-track-name { background: #13151a; color: #c8cbd7; border-color: #272a34; }
+.stitch-editor.theme-dark .timeline-track-name strong, .stitch-editor.theme-dark .timeline-lane-select { color: #c8cbd7; }
+.stitch-editor.theme-dark .timeline-zoom-content .ruler { background: #121419; border-color: #282b34; }
+.stitch-editor.theme-dark .ruler .timeline-time-tick > span { color: #9b9eac; }
+.stitch-editor.theme-dark .ruler .timeline-time-tick { background: #414551; }
+.stitch-editor.theme-dark .timeline-segment { background: linear-gradient(180deg,#aa7617,#bd8a23); color: #fff1cc; border: 1px solid #d5a441; border-radius: 7px; }
+.stitch-editor.theme-dark .timeline-segment.selected { outline: 2px solid #f6c35f; outline-offset: -2px; }
+.stitch-editor.theme-dark .editor-zoom-clip { background: linear-gradient(180deg,#5632df,#7957f4); color: #f1eaff; border-color: #967cf9; border-radius: 7px; }
+.stitch-editor.theme-dark .camera-linked-clip, .stitch-editor.theme-dark .cursor-timeline-clip { background: #253a3b; color: #d1e5de; border-color: #426363; }
+.stitch-editor.theme-dark .empty-track-actions button, .stitch-editor.theme-dark .lane-add-clip, .stitch-editor.theme-dark .lane-append-button { background: #191e18; color: #bbcda2; border-color: #48563a; }
+.stitch-editor.theme-dark .ruler-playhead, .stitch-editor.theme-dark .timeline-playhead, .stitch-editor.theme-dark .lane-shared-marker { background: #987aff; }
+.stitch-editor.theme-dark .ruler-playhead:after { border-top-color: #987aff; }
+.stitch-editor.theme-dark input:not([type=range]):not([type=color]), .stitch-editor.theme-dark select, .stitch-editor.theme-dark textarea { background: #252831; color: #eeeef4; border-color: #3a3e4a; }
+.stitch-editor.theme-dark .timeline-scale-controls button, .stitch-editor.theme-dark .fullscreen-preview-toggle, .stitch-editor.theme-dark .pointer-shape-options button, .stitch-editor.theme-dark .pointer-size-control { background: #252831; border-color: #3a3e4a; color: #d5d8e4; }
+.stitch-editor.theme-dark .pointer-shape-options button[aria-pressed=true] { background: #34304b; border-color: #9980e6; color: #e7ddff; box-shadow: inset 0 0 0 1px #9980e6; }
+.stitch-editor.theme-dark .pointer-motion-tabs, .stitch-editor.theme-dark .pointer-tool-buttons .button { background: #24272e; color: #cccfd9; border-color: #3a3e4a; }
+.stitch-editor.theme-dark .timeline-actions button, .stitch-editor.theme-dark .import-link { color: #aaaebe; }
+.stitch-editor.theme-dark .timeline-viewport::-webkit-scrollbar-track, .stitch-editor.theme-dark .shared-timeline::-webkit-scrollbar-track, .stitch-editor.theme-dark .inspector::-webkit-scrollbar-track { background: #22252d; border-color: #323642; }
+.stitch-editor.theme-dark ::-webkit-scrollbar-thumb { background: #71648e; border-color: #22252d; }
+
+.stitch-editor.theme-dark .inspector-section-title { color: #cbd0df !important; }
+.stitch-editor.theme-dark .color-field, .stitch-editor.theme-dark .background-upload .button, .stitch-editor.theme-dark .arrange-panel .button { background: #252831; color: #d8dce8; border-color: #3a3e4a; }
+.stitch-editor.theme-dark .timeline-tools button:not(.timeline-delete) { background: #252831; color: #c7ccda; border-color: #3a3e4a; }
+.stitch-editor.theme-dark .timeline-tools button:disabled { color: #747b8c; opacity: .6; }
+.stitch-editor.theme-dark .inspector p, .stitch-editor.theme-dark .inspector small, .stitch-editor.theme-dark .inspector h4 { color: #9ca3b3; }
+
+/* One compact add affordance for every timeline lane. */
+.stitch-editor .editor-lane { position: relative; padding-right: 52px; }
+.stitch-editor .lane-append-button,
+.stitch-editor .camera-append-button,
+.stitch-editor .editor-lane .lane-add-clip,
+.stitch-editor .empty-track-actions > button:first-child { width: 32px; min-width: 32px; height: 32px; min-height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px dashed #a6b68e; border-radius: 8px; background: #f0f5e7; color: #526e35; box-sizing: border-box; flex: 0 0 32px; font-size: 18px; }
+.stitch-editor .editor-lane .empty-track-actions > button:first-child,
+.stitch-editor .editor-lane .editor-lane-slots > .lane-add-clip { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+.stitch-editor .editor-lane .editor-lane-slots:has(> .lane-add-clip) { position: static; }
+.stitch-editor .editor-lane .timeline-track-name .track-add { display: none; }
+.stitch-editor .lane-append-button:hover,
+.stitch-editor .editor-lane .lane-add-clip:hover,
+.stitch-editor .empty-track-actions > button:first-child:hover { background: #e1eccf; border-color: #819e39; }
+.stitch-editor.theme-dark .lane-append-button,
+.stitch-editor.theme-dark .camera-append-button,
+.stitch-editor.theme-dark .editor-lane .lane-add-clip,
+.stitch-editor.theme-dark .empty-track-actions > button:first-child { background: #222a1d; border-color: #53663f; color: #b6ce95; }
+.stitch-editor .track, .stitch-editor .camera-timeline-row { position: relative; grid-template-columns: var(--timeline-label-width,166px) minmax(0,1fr); padding-right: 52px; }
+.stitch-editor .track > .lane-append-button, .stitch-editor .camera-timeline-row > .camera-append-button { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); grid-column: auto; grid-row: auto; }
+
+.stitch-editor .editor-lane > .empty-track-actions { position: static !important; }
+
+/* Compact, quiet timeline add controls. */
+.stitch-editor .lane-append-button,
+.stitch-editor .camera-append-button,
+.stitch-editor .editor-lane .lane-add-clip,
+.stitch-editor .empty-track-actions > button:first-child {
+  width: 24px; min-width: 24px; height: 24px; min-height: 24px;
+  flex: 0 0 24px; padding: 0; border: 1px solid #d7dcd0;
+  border-radius: 6px; background: #f8faf5; color: #748263;
+  box-shadow: none; transition: background .14s, border-color .14s, color .14s;
+}
+.stitch-editor .lane-append-button svg,
+.stitch-editor .camera-append-button svg,
+.stitch-editor .editor-lane .lane-add-clip svg,
+.stitch-editor .empty-track-actions > button:first-child svg { width: 13px; height: 13px; stroke-width: 1.6; }
+.stitch-editor .lane-append-button:hover,
+.stitch-editor .camera-append-button:hover,
+.stitch-editor .editor-lane .lane-add-clip:hover,
+.stitch-editor .empty-track-actions > button:first-child:hover { background: #edf2e6; border-color: #aab99a; color: #465b32; }
+.stitch-editor.theme-dark .lane-append-button,
+.stitch-editor.theme-dark .camera-append-button,
+.stitch-editor.theme-dark .editor-lane .lane-add-clip,
+.stitch-editor.theme-dark .empty-track-actions > button:first-child { background: #21252c; border: 1px solid #363d47; color: #a3acba; }
+.stitch-editor.theme-dark .lane-append-button:hover,
+.stitch-editor.theme-dark .camera-append-button:hover,
+.stitch-editor.theme-dark .editor-lane .lane-add-clip:hover,
+.stitch-editor.theme-dark .empty-track-actions > button:first-child:hover { background: #30353e; border-color: #686376; color: #e0d5ff; }
+
+.background-type-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: #eff1eb; margin: 14px 0 20px; }
+.background-type-tabs button { flex: 1; padding: 8px 4px; min-width: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #737c6b; font-size: 11px; cursor: pointer; }
+.background-type-tabs button[aria-selected=true] { background: #fff; color: #37472c; border-color: #d8dfcd; }
+.background-collection-label { font-size: 11px; color: #858b7d; margin-bottom: 12px; }
+.random-background-button { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; padding: 10px 8px; border-radius: 7px; border: 1px solid #dfe3d8; background: transparent; color: #59664e; font-size: 11px; margin-bottom: 14px; cursor: pointer; }
+.wallpaper-thumbnail-grid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 7px; }
+.wallpaper-thumbnail-grid button { aspect-ratio: 1; min-width: 0; border-radius: 8px; border: 1px solid #ffffff38; position: relative; cursor: pointer; padding: 0; display: grid; place-items: center; color: #fff; }
+.wallpaper-thumbnail-grid button[aria-pressed=true] { outline: 2px solid #9d87ed; outline-offset: 2px; }
+.wallpaper-thumbnail-grid button:hover { outline: 2px solid #a7b29b; outline-offset: 2px; }
+.selected-background-name { font-size: 10px !important; color: #89907f; margin: 12px 0 0; }
+.theme-dark .background-type-tabs { background: #22242c; }
+.theme-dark .background-type-tabs button { color: #a6a9b8; }
+.theme-dark .background-type-tabs button[aria-selected=true] { background: #30313c; border-color: #605373; color: #f1eaff; }
+.theme-dark .random-background-button { border-color: #30343e; color: #c7c9d5; }
+.theme-dark .background-collection-label { color: #979cab; }
+
+/* Compact playback dock: primary playback left, secondary actions right. */
+.stitch-editor .transport {
+  height: 56px;
+  min-height: 56px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  gap: 12px;
+  box-shadow: none;
+  font-family: inherit;
+}
+.stitch-editor .transport > .transport-playback,
+.stitch-editor .transport > .transport-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+}
+.stitch-editor .transport > .transport-actions { margin-left: auto; gap: 4px; }
+.stitch-editor .transport > div > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #60636b;
+  box-shadow: none;
+  transition: background .15s, color .15s;
+}
+.stitch-editor .transport > div > .transport-play { background: #b7d65d; color: #243016; }
+.stitch-editor .transport > div > .transport-play:hover { background: #a9c950; }
+.stitch-editor .transport .transport-time { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; color: #272b32; }
+.stitch-editor .transport .transport-time em { margin-left: 4px; color: #90949d; }
+.stitch-editor .transport > div > .transport-import { width: auto; padding: 0 10px; gap: 7px; font-family: inherit; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.stitch-editor .transport > div > button:hover { background: #eceef1; color: #252932; }
+.stitch-editor .transport > div > .transport-clear:hover { color: #bf3442; background: #fff0f1; }
+.stitch-editor .transport .transport-divider { height: 18px; width: 1px; background: #e2e4e8; margin: 0 6px; }
+.stitch-editor.theme-dark .transport .transport-time { color: #e8eaf0; }
+.stitch-editor.theme-dark .transport > div > button { color: #adb2c0; }
+.stitch-editor.theme-dark .transport > div > button:hover { background: #292d36; color: #f1f3f8; }
+.stitch-editor.theme-dark .transport > div > .transport-play { background: #b7d65d; color: #243016; }
+.stitch-editor.theme-dark .transport .transport-divider { background: #343843; }
+.stitch-editor .preview-fullscreen .transport-import,
+.stitch-editor .preview-fullscreen .transport-clear,
+.stitch-editor .preview-fullscreen .transport-divider { display: none; }
+@media (max-width: 480px) {
+  .stitch-editor .transport { padding-inline: 10px; }
+  .stitch-editor .transport .transport-import span { display: none; }
+  .stitch-editor .transport > div > .transport-import { width: 32px; padding: 0; }
+  .stitch-editor .transport > .transport-playback { gap: 8px; }
+}
+.camera-cutout-toggle { display:flex; align-items:center; gap:10px; padding:12px; margin:12px 0; border:1px solid #dfe3da; border-radius:10px; font-size:12px; cursor:pointer; }
+.camera-cutout-toggle input { accent-color:#84a348; width:16px; height:16px; }
+.camera-cutout-toggle small { display:block; margin-top:4px; color:#81867b; font-size:10px; line-height:1.5; }
+.theme-dark .camera-cutout-toggle { border-color:#353944; }
+
+/* Shared editor palette, including panels rendered outside the app via portals. */
+:root[data-demotake-theme="dark"], .app.theme-dark {
+  --dt-surface: #191b21;
+  --dt-raised: #242730;
+  --dt-hover: #303540;
+  --dt-border: #3a3f4b;
+  --dt-text: #e5e8f0;
+  --dt-muted: #adb5c5;
+  --dt-selected: #303b28;
+  --dt-accent: #badb78;
+  color-scheme: dark;
+}
+.app.theme-dark :is(header, .capture-bar, .groq-key-panel, .finished-export,
+  .camera-framing, .pointer-controls, .camera-cutout-toggle, .stitch-tools,
+  .zoom-editor, .music-editor, .audio-mixer, .clip-volume-strip,
+  .chapter-editor, .ai-component-editor, .animation-banner, .inspector-footer,
+  .caption-transform-controls, .caption-preview-disclosure) {
+  background: var(--dt-surface);
+  color: var(--dt-text);
+  border-color: var(--dt-border);
+}
+.app.theme-dark :is(.header-studio-icons, .pointer-motion-tabs,
+  .layout-target-tabs, .layout-size-presets, .capture-icon, .groq-key-panel summary small) {
+  background: var(--dt-raised);
+  color: var(--dt-muted);
+  border-color: var(--dt-border);
+}
+.app.theme-dark :is(.camera-framing, .pointer-controls, .control-section, .arrange-panel) :is(summary,h3,h4,label,strong) {
+  color: var(--dt-text);
+}
+.app.theme-dark :is(.camera-framing, .pointer-controls, .capture-bar, .groq-key-panel, .arrange-panel) :is(p,small,label),
+.app.theme-dark :is(.capture-label, .groq-key-label, .groq-key-description, .groq-key-note,
+  .background-selected-name, .background-collection-label, .inspector-footer) {
+  color: var(--dt-muted);
+}
+.app.theme-dark :is(.button.quiet, .button.dark, .header-studio-icons button,
+  .camera-framing button, .camera-shapes button, .camera-ratios button,
+  .camera-placement button, .camera-layout button, .camera-layout .button,
+  .layout-size-presets button, .layout-target-tabs button, .pointer-tool-buttons button,
+  .pointer-motion-tabs button, .capture-actions button:not(.lime), .random-background-button,
+  .theme-toggle, .stage-heading > button:not(.lime), .segment-volume-strip button) {
+  background: var(--dt-raised);
+  color: var(--dt-text);
+  border-color: var(--dt-border);
+  box-shadow: none;
+}
+.app.theme-dark :is(.camera-shapes button, .camera-ratios button, .camera-placement button,
+  .camera-layout button, .layout-target-tabs button, .pointer-motion-tabs button,
+  .header-studio-icons button)[aria-pressed="true"],
+.app.theme-dark :is(.camera-layout .selected, .header-studio-icons .active, .capture-actions .on) {
+  background: var(--dt-selected);
+  color: var(--dt-accent);
+  border-color: #708855;
+}
+.app.theme-dark :is(.button.quiet, .camera-framing button, .camera-shapes button,
+  .camera-ratios button, .camera-placement button, .header-studio-icons button):hover {
+  background: var(--dt-hover);
+  color: #f6f8ff;
+}
+.app.theme-dark :is(input,select,textarea)::placeholder { color: #9da6b7; opacity: 1; }
+.app.theme-dark input[type="range"] { accent-color: var(--dt-accent); }
+.app.theme-dark :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--dt-accent); }
+.app.theme-dark :is(button,input,select,textarea,summary):focus-visible {
+  outline: 2px solid #b9a1ff;
+  outline-offset: 3px;
+}
+.app.theme-dark .timeline-tools .timeline-delete { background:#3b2028; color:#ffabb6; border-color:#854451; }
+.app.theme-dark .camera-focus-reference { border:1px solid var(--dt-border); }
+.app.theme-dark .camera-focus-crosshair { color:#fff; background:#263322cc; border-color:#d2e7b9; }
+.app.theme-dark :is(.camera-ratios button span, .camera-placement button span) { border-color:currentColor; }
+.app.theme-dark .groq-key-note a { color: #c3afff; }
+.app.theme-dark :is(.header-export, .button.lime) { background:#b7d65d; color:#202b13; border-color:#b7d65d; }
+.app.theme-dark dialog,
+:root[data-demotake-theme="dark"] :is(.floating-capture, .floating-capture header) {
+  background: var(--dt-surface);
+  color: var(--dt-text);
+  border-color: var(--dt-border);
+}
+.app.theme-dark dialog :is(p,small,label,.export-dialog-eyebrow) { color:var(--dt-muted); }
+.app.theme-dark dialog :is(input:not([type="range"]),select,textarea,button:not(.lime):not(.export-dialog-save)) {
+  background:var(--dt-raised); color:var(--dt-text); border-color:var(--dt-border);
+}
+.app.theme-dark dialog::backdrop { background:#05070bb3; }
+:root[data-demotake-theme="dark"] .floating-capture :is(button,select) {
+  background:var(--dt-raised); color:var(--dt-text); border-color:var(--dt-border);
+}
+.app.theme-dark :is(.timeline-pointer-tools, .lane-inline-editor, .music-track-editor,
+  .manual-pointer-controls, .clip-volume-strip, .clip-volume-controls) {
+  background:var(--dt-surface);color:var(--dt-text);border-color:var(--dt-border);
+}
+.app.theme-dark :is(.timeline-pointer-tools, .lane-inline-editor, .music-track-editor) :is(summary,h3,h4,label) { color:var(--dt-text); }
+.app.theme-dark :is(.pointer-help, .pointer-clip-label, .lane-inline-editor small) { color:var(--dt-muted); }
+.app.theme-dark .pointer-mode-tabs { background:var(--dt-raised);border-color:var(--dt-border); }
+.app.theme-dark .pointer-mode-tabs button { background:transparent;color:var(--dt-muted); }
+.app.theme-dark .pointer-mode-tabs button[aria-pressed="true"] { background:var(--dt-selected);color:var(--dt-accent); }
+
+/* Inspector pointer controls override their standalone light panel styles. */
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools,
+.app.stitch-editor.theme-dark .inspector .timeline-cursor-expandable {
+  background: var(--dt-surface);
+  color: var(--dt-text);
+  border-color: var(--dt-border);
+}
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools :is(summary,label,strong) { color:var(--dt-text); }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools :is(p,small,.pointer-clip-label,.pointer-help,.cursor-repair-description) { color:var(--dt-muted); }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-mode-tabs { background:#11141a; border:1px solid var(--dt-border); }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-mode-tabs button { background:transparent; color:var(--dt-muted); box-shadow:none; }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-mode-tabs button[aria-pressed="true"] { background:var(--dt-raised);color:var(--dt-accent);box-shadow:inset 0 0 0 1px #64774f; }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools :is(.pointer-design-row,.timeline-cursor-calibration,.manual-pointer-controls) { background:transparent;border-color:var(--dt-border); }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-size-control { background:var(--dt-raised);color:var(--dt-text); }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .save-cursor-button { background:var(--dt-selected);color:#d8edba;border-color:#708855;box-shadow:none; }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .save-cursor-button:hover { background:#3b4b2e; }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-clear { color:var(--dt-muted);background:transparent; }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-clear:disabled { color:#929baa;opacity:.65; }
+.app.stitch-editor.theme-dark .inspector .timeline-pointer-tools .pointer-tool-buttons .is-active { background:var(--dt-selected);color:var(--dt-accent);border-color:#708855; }
+
+/* Desktop web editor uses the viewport as its workspace, like the native app. */
+@media (min-width: 801px) {
+  body:not(.native-mac-editor):has(.app.stitch-editor) { margin:0;overflow:hidden; }
+  body:not(.native-mac-editor) .app.stitch-editor { height:100dvh;min-height:0;width:100%;max-width:100%;overflow:hidden;padding:0; }
+  body:not(.native-mac-editor) .app.stitch-editor > main { display:flex;flex-direction:column;height:100%;min-height:0;width:100%;max-width:none;margin:0;padding:0;overflow:hidden; }
+  body:not(.native-mac-editor) .app.stitch-editor > main > :not(.editor) { flex-shrink:0; }
+  body:not(.native-mac-editor) .app.stitch-editor > main > header { margin:0;width:100%; }
+  body:not(.native-mac-editor) .app.stitch-editor .groq-key-panel { max-height:28dvh;overflow-y:auto; }
+  body:not(.native-mac-editor) .app.stitch-editor .editor:not(.preview-fullscreen) { flex:1 1 0;min-height:0;height:auto;width:100%;overflow:hidden;grid-template-columns:minmax(0,1fr) clamp(260px,25vw,330px);align-items:stretch; }
+  body:not(.native-mac-editor) .app.stitch-editor .stage-area { container-type:size;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden; }
+  body:not(.native-mac-editor) .app.stitch-editor .stage-heading,
+  body:not(.native-mac-editor) .app.stitch-editor .transport { flex-shrink:0; }
+  body:not(.native-mac-editor) .app.stitch-editor .stage:not(.preview-fullscreen .stage) { --preview-height:clamp(100px,calc(58cqh - 115px),600px);flex:0 0 auto;min-height:0;height:auto;max-height:none;width:min(calc(100% - 32px),calc(var(--preview-height) * var(--preview-ratio)));max-width:none;aspect-ratio:var(--preview-ratio);margin:8px auto !important; }
+  body:not(.native-mac-editor) .app.stitch-editor .shared-timeline { flex:1 1 0;min-height:140px;overflow-y:auto;overflow-x:hidden;margin:0; }
+  body:not(.native-mac-editor) .app.stitch-editor .inspector { width:auto;height:100%;max-height:100%;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;border-left:1px solid var(--studio-line); }
+  body:not(.native-mac-editor) .app.stitch-editor .capture-bar { flex-wrap:nowrap;padding-block:7px; }
+  body:not(.native-mac-editor) .app.stitch-editor .capture-actions { flex:0 1 auto;flex-wrap:nowrap; }
+  body:not(.native-mac-editor) .app.stitch-editor .capture-label { min-width:0; }
+  body:not(.native-mac-editor) .app.stitch-editor .capture-label strong { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+}
+.caption-language-choice { display:grid;gap:7px;margin:14px 0; }
+.caption-language-choice label { display:grid;gap:7px;font-size:12px; }
+.caption-language-choice select { width:100%;min-width:0;padding:9px;border:1px solid #d8dfd0;border-radius:7px;background:#fff;color:#34432c;font:inherit; }
+.caption-language-choice small { display:block;font-size:11px;line-height:1.6;color:#74806b; }
+.theme-dark .caption-language-choice select { background:#252831;color:#e0e6ef;border-color:#3a3e4a; }
+.theme-dark .caption-language-choice small { color:#adb5c5; }
+
+/* Selected-track controls share the inspector's spacing and theme. */
+.inspector .screen-appearance-controls label { display:grid; gap:10px; margin:18px 0; font-size:12px; }
+.inspector .screen-appearance-controls output { font-variant-numeric:tabular-nums; color:inherit; }
+.inspector .screen-appearance-controls input[type=range] { width:100%; }
+.inspector .layout-size-presets { display:flex; gap:6px; padding:4px; border:1px solid var(--border,#dfe3da); border-radius:10px; }
+.inspector .layout-size-presets button { flex:1; padding:9px 6px; border:0; border-radius:7px; font-family:inherit;font-size:12px;font-weight:500; cursor:pointer; }
+.inspector .canvas-background-settings { padding:20px; }
+.inspector [hidden] { display:none !important; }
+
+/* All lanes share one time origin, usable width and scale. Apply zoom once. */
+.stitch-editor .timeline-zoom-content .editor-lane {
+  display:grid;grid-template-columns:var(--timeline-label-width) minmax(0,1fr);padding-right:52px;
+}
+.stitch-editor .timeline-zoom-content .editor-lane > .editor-lane-slots {
+  width:calc(100% * var(--timeline-clip-scale));grid-column:2;min-width:0;padding:0 8px;box-sizing:border-box;
+}
+.stitch-editor .timeline-zoom-content .camera-linked-track {margin:0;padding:0 8px;}
+.stitch-editor .timeline-zoom-content .ruler {width:calc(100% - var(--timeline-label-width) - 52px);}
+.stitch-editor .timeline-zoom-content .lane-shared-marker {left:auto;}
+.stitch-editor .timeline-zoom-content .editor-lane {display:grid !important;}
+
+/* Shared glass skin across the editor, panels and timeline. */
+.app.studio-glass{--glass-bg:#eef3ee;--glass-panel:#ffffffb8;--glass-input:#ffffff80;--glass-line:#28473920;--glass-text:#25352f;--glass-muted:#64766d;background:radial-gradient(ellipse at 72% 0,#bbdacc90,transparent 70%),var(--glass-bg);color:var(--glass-text)}
+.app.studio-glass.theme-dark{--glass-bg:#0b1215;--glass-panel:#172528b8;--glass-input:#ffffff09;--glass-line:#d0e5db1f;--glass-text:#e4eee8;--glass-muted:#9cafa6;background:radial-gradient(ellipse at 72% 0,#24444470,transparent 70%),var(--glass-bg);color:var(--glass-text)}
+.app.studio-glass main,.app.studio-glass .editor,.app.studio-glass .stage-area{background:transparent;color:var(--glass-text)}
+.app.studio-glass .inspector,.app.studio-glass .transport,.app.studio-glass .capture-bar,.app.studio-glass>header,.app.studio-glass .stage-heading,.app.studio-glass .shared-timeline-toolbar,.app.studio-glass .timeline-scale-controls,.app.studio-glass .timeline-actions{background:var(--glass-panel);color:var(--glass-text);border-color:var(--glass-line);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.app.studio-glass .inspector .feature-inspector-panel,.app.studio-glass .inspector .control-section,.app.studio-glass .inspector .lane-inline-editor,.app.studio-glass .inspector .arrange-panel,.app.studio-glass .inspector .inspector-section-title,.app.studio-glass .inspector details,.app.studio-glass .inspector .pointer-shape-options,.app.studio-glass .inspector .manual-pointer-controls{background:transparent;color:var(--glass-text);border-color:var(--glass-line)}
+.app.studio-glass .inspector h3,.app.studio-glass .inspector h4,.app.studio-glass .inspector strong,.app.studio-glass .inspector label,.app.studio-glass .inspector summary{color:var(--glass-text)}
+.app.studio-glass .inspector p,.app.studio-glass .inspector small,.app.studio-glass .pointer-help{color:var(--glass-muted)}
+.app.studio-glass .inspector input:not([type=range]):not([type=checkbox]):not([type=color]),.app.studio-glass .inspector select,.app.studio-glass .inspector textarea,.app.studio-glass .inspector button:not(.lime):not(.tiny-toggle){background:var(--glass-input);color:var(--glass-text);border-color:var(--glass-line);border-radius:9px}
+.app.studio-glass .inspector .music-lane-editor{position:static;max-width:100%;width:100%;padding:18px;box-sizing:border-box;box-shadow:none}.app.studio-glass .music-track-editor{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}.app.studio-glass .music-track-editor select{max-width:100%;width:100%;min-width:0}.app.studio-glass .music-track-editor label{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.app.studio-glass .music-track-editor input[type=range]{flex:1;min-width:80px}.app.studio-glass .music-lane-editor .lane-editor-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.app.studio-glass .shared-timeline,.app.studio-glass .track,.app.studio-glass .camera-timeline-row,.app.studio-glass .editor-lane,.app.studio-glass .editor-detail-tracks,.app.studio-glass .timeline-track-name,.app.studio-glass .timeline-zoom-content .ruler{background:var(--glass-panel);color:var(--glass-text);border-color:var(--glass-line)}
+.app.studio-glass .stage:not(.preview-fullscreen .stage){background-color:transparent}.app.studio-glass .shared-timeline-toolbar>small{display:none}.app.studio-glass .shared-timeline-toolbar{flex-shrink:0}.app.studio-glass .inspector{overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}.app.studio-glass .timeline-viewport{padding-bottom:8px}
+.native-mac-editor .app.studio-glass .shared-timeline{flex:1 1 0;min-height:170px;overflow-y:auto;overflow-x:hidden}.native-mac-editor .app.studio-glass .stage:not(.preview-fullscreen .stage){flex:0 1 auto;max-height:43dvh;min-height:100px}.app.studio-glass .inspector .arrange-panel-heading{gap:12px;padding-bottom:12px}.app.studio-glass .inspector .arrange-panel-heading>div:not(.arrange-heading-icon){min-width:0;flex:1}.app.studio-glass .inspector .arrange-panel-heading button{flex-shrink:0}
+
+/* Inspector polish and readable project names in either glass theme. */
+.app.studio-glass .stage-heading>input{background:var(--glass-input);color:var(--glass-text);-webkit-text-fill-color:var(--glass-text);border:1px solid var(--glass-line);opacity:1;font-size:12px;font-weight:550}
+.app.studio-glass .stage-heading>input::placeholder{color:var(--glass-muted);-webkit-text-fill-color:var(--glass-muted);opacity:1}
+.app.studio-glass .inspector .canvas-background-settings{padding:18px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.app.studio-glass .inspector .canvas-background-settings>h3{margin:0;font-size:12px;line-height:1.4}
+.app.studio-glass .inspector .background-type-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;margin:0;background:var(--glass-input);border:1px solid var(--glass-line);border-radius:9px}
+.app.studio-glass .inspector .background-type-tabs button{font-family:inherit;font-size:10px;font-weight:500;line-height:1.3;min-height:28px;padding:6px 2px;border-radius:6px;border-color:transparent;background:transparent}
+.app.studio-glass .inspector .background-type-tabs button[aria-selected=true]{background:var(--glass-panel);border-color:var(--glass-line);color:var(--glass-text)}
+.app.studio-glass .inspector .background-collection-label{margin:0;font-size:10px;line-height:1.5;color:var(--glass-muted)}
+.app.studio-glass .inspector .random-background-button{margin:0;min-height:32px;padding:8px;font-size:11px;line-height:1.3}
+.app.studio-glass .inspector .wallpaper-thumbnail-grid{gap:8px;padding:2px}
+.app.studio-glass .inspector .selected-background-name{margin:0;font-size:10px;line-height:1.5}
+.app.studio-glass .inspector .screen-appearance-controls{padding:18px 16px}.app.studio-glass .inspector .screen-appearance-controls h3{font-size:12px;margin:0 0 14px}
+.app.studio-glass .inspector .screen-appearance-controls label{font-size:11px;gap:8px;margin:14px 0}
+.app.studio-glass .inspector .screen-appearance-controls .layout-size-presets{gap:3px;padding:3px;border-color:var(--glass-line);border-radius:8px}
+.app.studio-glass .inspector .screen-appearance-controls .layout-size-presets button{font-family:inherit;font-size:11px;font-weight:500;line-height:1.3;min-height:28px;height:28px;padding:5px 4px;border-radius:5px}
+
+/* Responsive editor chrome: reserve breathing room before controls wrap. */
+body:not(.native-mac-editor) .app.studio-glass .capture-bar{display:flex;align-items:center;justify-content:space-between;gap:14px 20px;padding:14px clamp(16px,2vw,28px);height:auto;min-height:68px;box-sizing:border-box}
+body:not(.native-mac-editor) .app.studio-glass .capture-label{flex:0 1 auto;min-width:0;gap:12px}
+body:not(.native-mac-editor) .app.studio-glass .capture-label strong{font-size:12px;line-height:1.5;white-space:normal}
+body:not(.native-mac-editor) .app.studio-glass .capture-icon{width:32px;height:32px;min-width:32px}
+body:not(.native-mac-editor) .app.studio-glass .capture-actions{display:flex!important;align-items:center;justify-content:flex-end;flex:0 1 auto;flex-wrap:wrap!important;gap:8px!important;min-width:0;max-width:100%;width:auto}
+body:not(.native-mac-editor) .app.studio-glass .capture-actions>button{min-width:0;min-height:36px;height:auto;flex:0 1 auto;padding:8px 12px!important;font-size:11px;line-height:1.4;white-space:normal}
+.app.studio-glass .stage-heading{padding:12px 16px;gap:10px;min-width:0;box-sizing:border-box}
+.app.studio-glass .stage-heading>input{min-width:70px!important;max-width:100%}.app.studio-glass .stage-heading>.button{flex-shrink:0;font-size:11px;padding:8px 10px}.app.studio-glass .stage-heading .output-format{min-width:77px;grid-template-columns:32px 32px;gap:4px}.app.studio-glass .stage-heading .output-format button{width:32px;height:32px;min-width:0}.app.studio-glass .stage-heading .output-format small{max-width:88px;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app.studio-glass .inspector :is(input:not([type=range]):not([type=checkbox]):not([type=color]),textarea,select){min-width:0;max-width:100%;box-sizing:border-box}.app.studio-glass .inspector :is(.arrange-inputs,.layout-fields,.caption-design-controls){min-width:0}.app.studio-glass .shared-timeline-toolbar .timeline-tools{min-width:0;max-width:100%;flex-wrap:wrap}.app.studio-glass .transport{gap:10px;min-width:0}.app.studio-glass .transport .import-link{font-size:11px;white-space:normal}
+@media(min-width:801px) and (max-width:1150px){body:not(.native-mac-editor) .app.studio-glass .capture-bar{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:14px 18px 16px}body:not(.native-mac-editor) .app.studio-glass .capture-actions{width:100%;justify-content:flex-start;flex:initial}body:not(.native-mac-editor) .app.studio-glass .capture-actions>button{flex:0 1 auto;padding:8px 10px!important}.app.studio-glass .stage-heading{gap:8px;padding:12px}.app.studio-glass .stage-heading .theme-toggle{width:30px;min-width:30px;height:30px}.app.studio-glass .inspector .control-section{padding-inline:16px}}
+@media(max-width:800px){body:not(.native-mac-editor) .app.studio-glass .capture-bar{display:grid;grid-template-columns:minmax(0,1fr);padding:16px;gap:12px}body:not(.native-mac-editor) .app.studio-glass .capture-actions{width:100%;justify-content:flex-start}body:not(.native-mac-editor) .app.studio-glass .capture-actions>button{flex:1 1 130px;min-height:40px}.app.studio-glass .stage-heading{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;padding:14px 12px}.app.studio-glass .stage-heading>input{width:100%;grid-column:2}.app.studio-glass .stage-heading .output-format{grid-column:2 / -1;justify-content:start;grid-template-columns:32px 32px;min-height:40px}.app.studio-glass .transport{flex-wrap:wrap;padding:12px}.app.studio-glass .editor{min-width:0;width:100%;max-width:100%}.app.studio-glass .inspector{max-width:100%;width:100%;box-sizing:border-box}.app.studio-glass .timeline-scale-controls{flex-wrap:wrap;gap:6px}.app.studio-glass .timeline-scale-controls small{flex-basis:100%;margin:2px 0}}
+
+/* Music and camera editors fit the inspector rather than imposing a fixed card. */
+.app.studio-glass .inspector{container-type:inline-size;container-name:studio-inspector}
+.app.studio-glass .feature-inspector-panel:has(.music-lane-editor),.app.studio-glass .feature-inspector-panel:has(.camera-lane-setup){padding:0;min-width:0;max-width:100%}
+.app.studio-glass .inspector .music-lane-editor,.app.studio-glass .inspector .camera-lane-setup{padding:16px;width:100%;max-width:100%;min-width:0;margin:0;border-radius:0;box-sizing:border-box}
+.app.studio-glass .inspector .music-lane-editor>div:first-child,.app.studio-glass .inspector .camera-lane-setup>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.app.studio-glass .inspector .music-lane-editor>div:first-child strong,.app.studio-glass .inspector .camera-lane-setup>div:first-child strong{font-size:12px;font-weight:600;line-height:1.4}
+.app.studio-glass .inspector .music-lane-editor>div:first-child button,.app.studio-glass .inspector .camera-lane-setup>div:first-child button{width:26px;height:26px;min-height:26px;flex:none;padding:0;font-size:15px;border-radius:7px}
+.app.studio-glass .inspector .music-track-editor{gap:12px;width:100%}
+.app.studio-glass .inspector .music-track-editor>button,.app.studio-glass .inspector .music-track-editor select{width:100%;max-width:100%;min-height:34px;font-family:inherit;font-size:11px;padding:8px 10px;box-sizing:border-box}
+.app.studio-glass .inspector .music-track-editor label{display:grid;grid-template-columns:auto minmax(50px,1fr) auto;gap:8px;align-items:center;font-size:11px;line-height:1.5}
+.app.studio-glass .inspector .music-track-editor label small{font-size:10px;min-width:26px;text-align:right}
+.app.studio-glass .inspector .music-lane-editor>label{margin-top:16px;font-size:11px;line-height:1.5;min-width:0;max-width:100%}
+.app.studio-glass .inspector .music-lane-editor>.auto-zoom-switch{display:flex;align-items:center;gap:8px;white-space:normal}
+.app.studio-glass .inspector .music-lane-editor>.auto-zoom-switch input{flex:none;margin:0}
+.app.studio-glass .inspector .music-lane-editor>label:not(.auto-zoom-switch){display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
+.app.studio-glass .inspector .music-lane-editor input[type=range]{width:100%;min-width:0;margin:0;accent-color:#8aa54e}
+.app.studio-glass .inspector .music-lane-editor>p,.app.studio-glass .inspector .camera-lane-setup>p{font-size:11px;line-height:1.6;margin:14px 0 0;color:var(--glass-muted);overflow-wrap:anywhere}
+.app.studio-glass .inspector .music-lane-editor .lane-editor-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}
+.app.studio-glass .inspector .music-lane-editor .lane-editor-actions button,.app.studio-glass .inspector .camera-lane-setup .lane-editor-actions button{min-width:0;max-width:100%;font-family:inherit;font-size:11px;line-height:1.4;padding:9px 8px;min-height:34px;white-space:normal;overflow-wrap:anywhere}
+.app.studio-glass .inspector .camera-lane-setup .lane-editor-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:14px}
+@container studio-inspector (max-width:260px){.app.studio-glass .inspector .music-lane-editor,.app.studio-glass .inspector .camera-lane-setup{padding:14px}.app.studio-glass .inspector .music-lane-editor .lane-editor-actions{grid-template-columns:minmax(0,1fr)}}
+
+/* Blueprint: one project header, one transport/edit strip, compact tracks. */
+.app.studio-glass .studio-nav-menu{position:relative;flex:none}.studio-nav-menu>summary,.header-capture-menu>summary{list-style:none;display:flex;align-items:center;gap:7px;cursor:pointer;padding:9px 10px;border:1px solid var(--glass-line);border-radius:9px;font-size:11px;white-space:nowrap}.studio-nav-menu>summary::-webkit-details-marker,.header-capture-menu>summary::-webkit-details-marker{display:none}.studio-nav-menu[open]>.header-studio-icons{position:absolute;z-index:45;top:calc(100% + 8px);left:0;display:flex;flex-direction:column;align-items:stretch;min-width:210px;padding:7px;background:var(--glass-panel);backdrop-filter:blur(24px);border:1px solid var(--glass-line);border-radius:12px;box-shadow:0 12px 30px #0002}.studio-nav-menu .nav{justify-content:flex-start;text-align:left}
+body:not(.native-mac-editor) .app.studio-glass.stitch-editor>main>header{display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:66px;flex-wrap:nowrap;position:relative;z-index:30;box-sizing:border-box}
+body:not(.native-mac-editor) .app.studio-glass .studio-location{flex:0 0 auto;min-width:0}#project-header-slot{flex:1;min-width:0}.app.studio-glass #project-header-slot .stage-heading{padding:0;background:none;border:0;display:flex;flex-wrap:nowrap;gap:8px}.app.studio-glass #project-header-slot .stage-heading>input{font-size:12px;background:transparent;border-color:transparent;min-width:70px}.app.studio-glass #project-header-slot .stage-heading>input:hover,.app.studio-glass #project-header-slot .stage-heading>input:focus{border-color:var(--glass-line)}.app.studio-glass #project-header-slot .save-project-name{font-size:10px;padding:6px 8px;min-height:28px}.app.studio-glass #project-header-slot .output-format small{display:none}
+.app.studio-glass .header-capture-menu{position:relative}.app.studio-glass #header-capture-slot{position:absolute;top:calc(100% + 12px);right:0;width:min(600px,calc(100vw - 32px));z-index:50;border:1px solid var(--glass-line);border-radius:12px;background:var(--glass-panel);backdrop-filter:blur(30px);box-shadow:0 18px 45px #0003}.app.studio-glass #header-capture-slot .capture-bar{padding:16px;display:flex;flex-direction:column;align-items:stretch;gap:14px;min-height:0;border:0;border-radius:12px}.app.studio-glass #header-capture-slot .capture-actions{display:flex!important;flex-wrap:wrap!important;gap:8px;width:100%;justify-content:flex-start}.app.studio-glass .header-actions{gap:8px;flex:none}.app.studio-glass .header-actions .saved{display:none}.app.studio-glass .header-cloud{width:32px;min-width:32px;padding:7px}.app.studio-glass .header-cloud>span{display:none}.app.studio-glass .header-record,.app.studio-glass .header-export{font-size:11px;padding:9px 11px;min-height:34px}
+.app.studio-glass .inspector-accordion{border-bottom:1px solid var(--glass-line)}.app.studio-glass .inspector-accordion>summary{padding:14px 16px;font-size:12px;font-weight:600;cursor:pointer}.app.studio-glass .inspector-accordion .control-section{border-bottom:0;padding-top:4px}.app.studio-glass .inspector-accordion .control-section>h3{display:none}.app.studio-glass .inspector .arrange-panel{border-bottom:1px solid var(--glass-line)}
+.app.studio-glass #timeline-playback-slot{flex:0 1 auto;min-width:0}.app.studio-glass #timeline-playback-slot .transport{display:flex;gap:12px;justify-content:flex-start;padding:0;margin:0;background:none;border:0;backdrop-filter:none;min-height:32px;flex-wrap:nowrap}.app.studio-glass #timeline-playback-slot .transport-playback{gap:8px;flex:none}.app.studio-glass #timeline-playback-slot .transport-actions{gap:5px}.app.studio-glass #timeline-playback-slot .transport-play{height:30px;width:30px;min-height:30px}.app.studio-glass #timeline-playback-slot .transport-time{font-size:10px}.app.studio-glass #timeline-playback-slot .transport-import{font-size:10px;padding:6px}.app.studio-glass #timeline-playback-slot .transport-clear{display:none}.app.studio-glass .shared-timeline-toolbar{gap:10px;padding:8px 12px;align-items:center;position:sticky;top:0;z-index:10}.app.studio-glass .shared-timeline-toolbar .timeline-tools{gap:5px;flex:1}.app.studio-glass .shared-timeline-toolbar .timeline-tools>button{font-size:11px;min-height:30px;padding:6px 8px}.app.studio-glass .shared-timeline-toolbar .timeline-tools>button svg{width:14px;height:14px}
+.app.studio-glass .shared-timeline{--timeline-label-width:120px}.app.studio-glass .shared-timeline .timeline-track-name{width:var(--timeline-label-width);min-width:var(--timeline-label-width);max-width:var(--timeline-label-width);padding:0 9px;gap:6px;box-sizing:border-box}.app.studio-glass .shared-timeline .timeline-track-name strong{font-size:10px}.app.studio-glass .shared-timeline .timeline-track-name>svg{width:13px;height:13px;flex:none}.app.studio-glass .shared-timeline .timeline-track-name .track-remove{opacity:0;transition:opacity .15s}.app.studio-glass .shared-timeline .timeline-track-name:hover .track-remove,.app.studio-glass .shared-timeline .timeline-track-name:focus-within .track-remove{opacity:1}.app.studio-glass .timeline-zoom-content .ruler{margin-left:var(--timeline-label-width)}
+.app.studio-glass .editor-zoom-clip{background:transparent!important;border:1px solid var(--glass-line);border-radius:7px;height:28px;min-height:28px;padding:3px 7px;text-align:left;color:var(--glass-muted)}.app.studio-glass .editor-zoom-clip .zoom-keyframe-label{display:inline-block;background:var(--glass-input);border:1px solid var(--glass-line);border-radius:12px;padding:3px 8px;font-size:10px;line-height:1.2}.app.studio-glass .editor-zoom-clip.active .zoom-keyframe-label{background:#bfd879;color:#26331e;border-color:#a9c465}.app.studio-glass .editor-music-clip{position:relative;overflow:hidden}.app.studio-glass .editor-music-clip>.clip-waveform{opacity:.28}.app.studio-glass .editor-music-clip>span,.app.studio-glass .editor-music-clip>small,.app.studio-glass .editor-music-clip>svg:not(.clip-waveform){position:relative;z-index:1}.app.studio-glass .timeline-actions{font-size:10px;min-height:30px;padding:5px 12px}
+.app.studio-glass:not(.theme-dark) .stage-area{background-image:radial-gradient(#34514012 .7px,transparent .7px);background-size:18px 18px}.app.studio-glass .composition-preview{border-radius:12px;border:1px solid var(--glass-line);box-shadow:0 14px 36px -18px #0003}
+@media(max-width:1150px) and (min-width:801px){body:not(.native-mac-editor) .app.studio-glass.stitch-editor>main>header{gap:8px;padding:9px 12px}.app.studio-glass #project-header-slot .save-project-name{display:none}.app.studio-glass #project-header-slot .theme-toggle{width:28px;min-width:28px;height:28px}.app.studio-glass .header-export>span{display:none}.app.studio-glass .header-export{width:34px;min-width:34px;padding:8px}.app.studio-glass .header-cloud{display:none}.app.studio-glass .studio-nav-menu>summary{font-size:0;gap:0}.app.studio-glass .studio-nav-menu>summary>svg:last-child{display:none}.app.studio-glass #timeline-playback-slot .transport-import>span{display:none}.app.studio-glass .shared-timeline-toolbar{gap:7px}}
+@media(max-width:800px){body:not(.native-mac-editor) .app.studio-glass.stitch-editor>main>header{display:flex;flex-wrap:wrap;padding:12px;gap:10px}#project-header-slot{flex-basis:calc(100% - 90px)}.app.studio-glass #project-header-slot .stage-heading{display:flex}.app.studio-glass #project-header-slot .output-format{min-height:0}.app.studio-glass .header-actions{width:100%;justify-content:flex-end}.app.studio-glass .header-actions .saved{display:none}.app.studio-glass .header-capture-menu{margin-right:auto}.app.studio-glass #header-capture-slot{left:0;right:auto}.app.studio-glass #timeline-playback-slot{flex-basis:100%}.app.studio-glass .shared-timeline{--timeline-label-width:104px}.app.studio-glass .timeline-track-name .track-remove{opacity:1!important}.app.studio-glass #project-header-slot .save-project-name{font-size:10px}}
+.app.studio-glass #timeline-scale-slot{min-width:0;flex:0 1 auto;margin-left:auto}.app.studio-glass #timeline-scale-slot .timeline-scale-controls{border:0;padding:0;margin:0;background:none;backdrop-filter:none;display:flex;gap:5px;align-items:center;min-height:30px;flex-wrap:nowrap}.app.studio-glass #timeline-scale-slot .timeline-scale-controls>span{display:none}.app.studio-glass #timeline-scale-slot button{min-width:26px;width:auto;height:28px;min-height:28px;padding:4px 6px;font-size:10px}.app.studio-glass .timeline-zoom-slider{width:70px;min-width:40px;accent-color:#8aa54f}.app.studio-glass #timeline-scale-slot button[aria-label='Scroll timeline left'],.app.studio-glass #timeline-scale-slot button[aria-label='Scroll timeline right']{display:none}
+@media(max-width:800px){.app.studio-glass #timeline-scale-slot{margin-left:0;flex-basis:100%}.app.studio-glass .timeline-zoom-slider{width:100px}}
+.app.studio-glass #timeline-scale-slot button[aria-label='Scroll timeline left'],.app.studio-glass #timeline-scale-slot button[aria-label='Scroll timeline right']{display:inline-flex;align-items:center;justify-content:center}
+
+.studio-preview-stage > .fullscreen-preview-toggle {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #ffffff40;
+  border-radius: 8px;
+  background: #17201dcc;
+  color: #fff;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+}
+.transport-playback > .timeline-icon { flex-shrink: 0; }
+.shared-timeline-toolbar .timeline-delete { width: 32px; min-width: 32px; padding: 0; justify-content: center; }
+
+/* Prioritize the preview; keep all tracks reachable in a compact scroll region. */
+@media (min-width: 801px) {
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .stage:not(.preview-fullscreen .stage) {
+    --preview-height: clamp(100px, calc(100cqh - 265px), 1000px);
+  }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .shared-timeline,
+  .native-mac-editor .app.studio-glass .shared-timeline {
+    flex: 0 0 clamp(190px, 27dvh, 260px);
+    min-height: 160px;
+    max-height: 32dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .native-mac-editor .app.studio-glass .stage:not(.preview-fullscreen .stage) {
+    flex: 1 1 auto;
+    max-height: calc(100dvh - 350px);
+  }
+}
+.app.studio-glass .timeline-track-name,
+.app.studio-glass .editor-lane,
+.app.studio-glass .track {
+  min-height: 36px;
+}
+.app.studio-glass .editor-lane-slots,
+.app.studio-glass .cursor-timeline-slots { min-height: 36px; }
+.app.studio-glass .editor-lane { padding-block: 4px; }
+.app.studio-glass .timeline-actions { min-height: 28px; padding-block: 3px; }
+.app.studio-glass .shared-timeline-toolbar { padding-block: 6px; gap: 6px; }
+/* Caption markers use the same full-width time coordinate as every other lane. */
+.app.studio-glass .editor-caption-slot { flex-basis: 0; }
+.app.studio-glass .editor-lane-slots { position: relative; }
+.app.studio-glass .feature-trim-edge { position:absolute;top:0;bottom:0;width:7px;cursor:ew-resize;background:#ffffff20;z-index:6;touch-action:none; }
+.app.studio-glass .feature-trim-edge.start { left:0; }
+.app.studio-glass .feature-trim-edge.end { right:0; }
+.app.studio-glass .editor-caption-clip.timed { touch-action:none;cursor:grab; }
+.app.studio-glass .editor-lane-slots:has(.editor-caption-slot) { gap: 0; }
+.app.studio-glass .editable-lane-clip { position: relative; }
+.app.studio-glass :is(.editor-music-clip,.cursor-timeline-clip,.editor-zoom-clip) { touch-action: none; cursor: grab; }
+
+/* Use every remaining pixel below the preview; never leave a blank lower panel. */
+body:not(.native-mac-editor) .app.studio-glass.stitch-editor .stage-area > .shared-timeline,
+.native-mac-editor .app.studio-glass .stage-area > .shared-timeline {
+  flex: 1 1 0;
+  min-height: 160px;
+  max-height: none;
+  margin-bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Mobile editor header: explicit rows prevent project and capture controls colliding. */
+@media (max-width: 800px) {
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor > main > header {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 12px;
+    gap: 10px;
+    overflow: visible;
+  }
+  .app.studio-glass .studio-location { grid-column: 1; grid-row: 1; min-width: 0; width: 44px; }
+  .app.studio-glass .studio-nav-menu > summary { width: 40px; min-width: 0; padding: 10px; font-size: 0; gap: 0; justify-content: center; }
+  .app.studio-glass .studio-nav-menu > summary > svg:last-child { display: none; }
+  .app.studio-glass #project-header-slot { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; flex-basis: auto; }
+  .app.studio-glass #project-header-slot .stage-heading { display: flex; width: 100%; min-width: 0; padding: 0; gap: 8px; }
+  .app.studio-glass #project-header-slot .stage-heading > input { flex: 1 1 60px; min-width: 0; width: 60px; text-overflow: ellipsis; }
+  .app.studio-glass #project-header-slot .save-project-name { display: none; }
+  .app.studio-glass #project-header-slot .output-format { flex: 0 0 auto; }
+  .app.studio-glass #project-header-slot .output-format small { display: none; }
+  .app.studio-glass .header-actions { grid-column: 1 / -1; grid-row: 2; display: flex; position: static; width: 100%; min-width: 0; margin: 0; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .app.studio-glass .header-capture-menu { position: static; margin-right: auto; }
+  .app.studio-glass .header-capture-menu > summary { min-height: 36px; }
+  .app.studio-glass #header-capture-slot { position: absolute; left: 12px; right: 12px; top: 100%; width: auto; max-width: calc(100vw - 24px); z-index: 60; }
+  .app.studio-glass .header-actions > button { flex-shrink: 0; min-width: 36px; }
+  .app.studio-glass .header-actions .saved { display: none; }
+}
+@media (max-width: 800px) {
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor > main > header { position: relative; z-index: 65; }
+}
+.mobile-feature-heading,.mobile-timeline-tools-toggle,#mobile-layout-slot { display:none; }
+@media(max-width:800px) {
+  .app.studio-glass #mobile-layout-slot { display:block; }
+  .app.studio-glass #mobile-layout-slot .arrange-panel { margin:0;padding:10px 14px; }
+  .app.studio-glass #mobile-layout-slot .arrange-panel-heading { padding:0;align-items:center; }
+  .app.studio-glass #mobile-layout-slot .arrange-panel-heading p { display:none; }
+  .app.studio-glass #mobile-layout-slot .arrange-panel.editing { max-height:40svh;overflow:auto; }
+  .app.studio-glass .inspector { display:none; }
+  .app.studio-glass .inspector.mobile-feature-open {
+    display:block;position:fixed;inset: max(16px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom));
+    width:auto!important;height:auto!important;max-height:none!important;z-index:200;
+    border:1px solid var(--glass-line);border-radius:16px;background:var(--glass-bg);
+    overflow-y:auto;overscroll-behavior:contain;box-shadow:0 0 0 100vmax #0008;
+    animation:mobile-feature-enter .18s ease-out;
+  }
+  .app.studio-glass .mobile-feature-heading { display:flex;position:sticky;top:0;z-index:30;align-items:center;justify-content:space-between;padding:14px;background:var(--glass-bg);border-bottom:1px solid var(--glass-line); }
+  .app.studio-glass .mobile-feature-heading button { padding:8px 16px;border-radius:8px;background:#bdd77a;color:#24301b;border:0; }
+  .app.studio-glass .shared-timeline-toolbar { display:flex;flex-wrap:wrap;padding:8px 12px; }
+  .app.studio-glass .mobile-timeline-tools-toggle { display:inline-flex; }
+  .app.studio-glass .timeline-tools > :not(.mobile-timeline-tools-toggle) { display:none; }
+  .app.studio-glass .mobile-tools-open .timeline-tools > :not(.mobile-timeline-tools-toggle) { display:inline-flex;animation:mobile-feature-enter .18s ease-out; }
+  .app.studio-glass .shared-timeline:not(.mobile-tools-open) #timeline-scale-slot { display:none; }
+  .app.studio-glass #timeline-playback-slot { flex:1 1 180px; }
+  .app.studio-glass .timeline-tools { flex:0 1 auto; }
+}
+@keyframes mobile-feature-enter { from {opacity:0;transform:translateY(8px);} to {opacity:1;transform:translateY(0);} }
+@media(prefers-reduced-motion:reduce) { .app.studio-glass .inspector.mobile-feature-open,.app.studio-glass .mobile-tools-open .timeline-tools > * { animation:none; } }
+@media (max-width: 800px) {
+  .app.studio-glass .header-actions .header-action-label,
+  .app.studio-glass .header-actions .header-cloud > span,
+  .app.studio-glass .header-actions .header-export > span { display:none; }
+  .app.studio-glass .header-actions > button,
+  .app.studio-glass .header-capture-menu > summary {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:40px;min-width:40px;height:40px;min-height:40px;
+    padding:0;gap:0;flex:0 0 40px;
+  }
+  .app.studio-glass .header-record-symbol { display:block;flex-shrink:0; }
+}
+
+/* Mobile reading order ends at the timeline; editing panels live in the popup. */
+@media (max-width:800px) {
+  .app.studio-glass .stage-area { display:flex;flex-direction:column; }
+  .app.studio-glass .stage-area > #mobile-layout-slot { order:-2; }
+  .app.studio-glass .stage-area > .shared-timeline { order:100; }
+  .app.studio-glass .editor > .inspector:not(.mobile-feature-open) { display:none!important; }
+  .app.studio-glass .editor > .inspector.mobile-feature-open { display:block!important; }
+  .app.studio-glass .stage-area > .shared-timeline .timeline-actions { display:none; }
+}
+
+/* Shared theme tokens cover feature controls wherever they are mounted. */
+.app.studio-glass { color-scheme:light; --feature-surface:#f4f7f3; --feature-input:#ffffffd9; --feature-selected:#e2edcf; --feature-accent:#688638; }
+.app.studio-glass.theme-dark { color-scheme:dark; --feature-surface:#172528; --feature-input:#ffffff0c; --feature-selected:#34452c; --feature-accent:#bbd77b; }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) {
+  color:var(--glass-text);
+  border-color:var(--glass-line);
+  scrollbar-color:var(--glass-muted) var(--glass-bg);
+}
+.app.studio-glass dialog { background:var(--glass-bg);max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);overflow:auto; }
+.app.studio-glass dialog::backdrop { background:#050a0c99;backdrop-filter:blur(5px); }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) :is(.control-section,.camera-framing,.arrange-panel,.lane-inline-editor,.timeline-pointer-tools,.manual-pointer-controls,.music-track-editor,.caption-design-controls,.clip-volume-controls,.clip-volume-strip,.pointer-design-row,.timeline-cursor-calibration) {
+  color:var(--glass-text);background:transparent;border-color:var(--glass-line);
+}
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) :is(h2,h3,h4,strong,summary,label,output) { color:var(--glass-text); }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) :is(p,small,.pointer-help,.pointer-clip-label) { color:var(--glass-muted); }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) :is(input:not([type=range]):not([type=checkbox]):not([type=color]),select,textarea) {
+  background:var(--feature-input);color:var(--glass-text);border-color:var(--glass-line);min-width:0;max-width:100%;
+}
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) input::placeholder,
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) textarea::placeholder { color:var(--glass-muted);opacity:.8; }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) select option { background:var(--glass-bg);color:var(--glass-text); }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) button:not(.lime):not(.export-dialog-save):not(.wallpaper-swatch):not(.gradient-swatch):not(.color-swatch) {
+  background-color:var(--feature-input);color:var(--glass-text);border-color:var(--glass-line);
+}
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) button:is(.active,[aria-pressed=true],[aria-selected=true]) {
+  background-color:var(--feature-selected);color:var(--glass-text);border-color:var(--feature-accent);
+}
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) input:is([type=range],[type=checkbox]) { accent-color:var(--feature-accent); }
+.app.studio-glass :is(.inspector,#mobile-layout-slot,dialog,#header-capture-slot) :is(button,input,select,textarea):focus-visible { outline:2px solid var(--feature-accent);outline-offset:3px; }
+
+/* Native preview geometry is aspect-ratio driven, never flex-stretched. */
+.native-mac-editor .app.studio-glass .editor:not(.preview-fullscreen) .stage-area {
+  container-type:size;display:flex;flex-direction:column;min-height:0;height:100%;overflow:hidden;
+}
+.native-mac-editor .app.studio-glass .editor:not(.preview-fullscreen) .studio-preview-stage {
+  --native-preview-height: max(100px, calc(100cqh - 255px));
+  flex:0 0 auto;
+  align-self:center;
+  width:min(calc(100% - 24px), calc(var(--native-preview-height) * var(--preview-ratio)));
+  height:auto;
+  min-height:0;
+  max-height:none;
+  max-width:calc(100% - 24px);
+  aspect-ratio:var(--preview-ratio);
+  margin:8px auto!important;
+}
+.native-mac-editor .app.studio-glass .editor:not(.preview-fullscreen) .composition-preview {
+  width:100%;height:100%;object-fit:contain;aspect-ratio:var(--preview-ratio);
+}
+.native-mac-editor .app.studio-glass .stage-area > .shared-timeline { flex:1 1 0;min-height:150px;max-height:none;overflow-y:auto; }
+
+/* Mobile workspace fills the viewport, with the timeline occupying all leftover height. */
+@media (max-width:800px) {
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor { height:100dvh;min-height:0;overflow:hidden; }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor > main { display:flex;flex-direction:column;height:100%;min-height:0;padding:0;margin:0;overflow:hidden; }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor > main > header,
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor > main > .groq-key-panel { flex-shrink:0; }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .editor:not(.preview-fullscreen) { flex:1 1 0;display:flex;flex-direction:column;min-height:0;height:auto;overflow:hidden; }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .editor:not(.preview-fullscreen) .stage-area { flex:1 1 0;display:flex;flex-direction:column;min-height:0;height:100%;overflow:hidden;container-type:size; }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .stage-area > #mobile-layout-slot { flex:0 0 auto; }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .stage:not(.preview-fullscreen .stage) {
+    --preview-height: max(100px, calc(100cqh - 290px));
+    width:min(calc(100% - 24px),calc(var(--preview-height) * var(--preview-ratio)));
+    height:auto;min-height:0;max-height:none;flex:0 0 auto;aspect-ratio:var(--preview-ratio);margin:8px auto!important;
+  }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .stage-area > .shared-timeline { flex:1 1 0;min-height:170px;height:auto;max-height:none;overflow-y:auto;margin-bottom:0; }
+}
+.app.studio-glass .clip-volume-shortcut { position:absolute;right:48px;top:50%;transform:translateY(-50%);z-index:8;width:26px;height:26px;min-height:26px;padding:0;display:grid;place-items:center;border:1px solid var(--glass-line);border-radius:6px;background:var(--glass-bg);color:var(--glass-text);cursor:pointer; }
+.app.studio-glass .music-volume-shortcut { right:8px; }
+.app.studio-glass .editor-music-clip { padding-right:42px; }
+.app.studio-glass .timeline-segment .clip-label { padding-right:28px; }
+
+/* Avoid size-containment collapsing the mobile flex child to zero height. */
+@media (max-width:800px) {
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .editor:not(.preview-fullscreen) {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr);
+    align-items:stretch;
+    align-content:stretch;
+  }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .editor:not(.preview-fullscreen) > .stage-area {
+    container-type:normal;
+    width:100%;height:100%;min-height:0;
+    display:flex;flex-direction:column;
+    padding:0;position:relative;
+  }
+  body:not(.native-mac-editor) .app.studio-glass.stitch-editor .stage:not(.preview-fullscreen .stage) {
+    --preview-height:clamp(100px,calc(100dvh - 490px),460px);
+    width:min(calc(100% - 24px),calc(var(--preview-height) * var(--preview-ratio)));
+    aspect-ratio:var(--preview-ratio);flex:0 0 auto;
+  }
+}
+
+/* Compact mobile feature panel with a blurred, dimmed editor backdrop. */
+@media (max-width:800px) {
+  .app.studio-glass .inspector.mobile-feature-open {
+    inset:auto 12px max(16px,env(safe-area-inset-bottom));
+    height:fit-content!important;
+    max-height:min(65dvh,620px)!important;
+    min-height:0;
+    border-radius:18px;
+    box-shadow:0 18px 60px #0006;
+    overflow-y:auto;
+  }
+  .app.studio-glass .editor:has(> .inspector.mobile-feature-open)::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    z-index:190;
+    background:#07101380;
+    backdrop-filter:blur(7px);
+    -webkit-backdrop-filter:blur(7px);
+  }
+  .app.studio-glass .inspector.mobile-feature-open .mobile-feature-heading { border-radius:18px 18px 0 0; }
+}
+
+/* Mobile toolbar uses full-width rows, never competing narrow flex columns. */
+@media(max-width:800px) {
+  .app.studio-glass .shared-timeline-toolbar {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr);
+    gap:8px;padding:10px 12px;
+    align-items:center;
+  }
+  .app.studio-glass #timeline-playback-slot { width:100%;min-width:0; }
+  .app.studio-glass #timeline-playback-slot .transport { width:100%;justify-content:space-between;gap:8px; }
+  .app.studio-glass #timeline-playback-slot .transport-actions { margin-left:auto; }
+  .app.studio-glass #timeline-playback-slot .transport-import span { display:none; }
+  .app.studio-glass #timeline-playback-slot .transport-divider { display:none; }
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools {
+    display:flex;width:100%;max-width:100%;min-width:0;
+    justify-content:flex-start;align-items:center;gap:6px;flex-wrap:wrap;margin:0;
+  }
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools > button { height:34px;min-height:34px;padding:6px 10px;margin:0; }
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools > .timeline-icon { min-width:34px; }
+  .app.studio-glass .shared-timeline-toolbar .mobile-timeline-tools-toggle { border:1px solid var(--glass-line);border-radius:8px;background:var(--feature-input);color:var(--glass-text); }
+  .app.studio-glass .mobile-tools-open #timeline-scale-slot { display:block;width:100%;margin:0;padding-top:6px;border-top:1px solid var(--glass-line); }
+  .app.studio-glass #timeline-scale-slot .timeline-scale-controls { width:100%;display:flex;justify-content:flex-start;gap:6px; }
+  .app.studio-glass #timeline-scale-slot .timeline-zoom-slider { flex:1 1 60px;width:60px;min-width:40px;max-width:none; }
+  .app.studio-glass #timeline-scale-slot button { flex:0 0 auto; }
+}
+
+@media(max-width:800px) {
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools {
+    display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    width:100%;gap:7px;padding:2px 0 7px;
+    overscroll-behavior-x:contain;scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch;
+  }
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools > button { flex:0 0 auto;white-space:nowrap; }
+}
+@media(max-width:800px) {
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools > :not(.mobile-timeline-tools-toggle) { display:inline-flex; }
+  .app.studio-glass .shared-timeline-toolbar .timeline-tools > .mobile-timeline-tools-toggle { display:none; }
+  .app.studio-glass .shared-timeline #timeline-scale-slot { display:none!important; }
+}
+
+/* The main footage is the timeline's bottom anchor; scroll upward for effects. */
+.app.studio-glass .timeline-zoom-content { display:flex;flex-direction:column; }
+.app.studio-glass .timeline-zoom-content > .ruler { order:-10;flex-shrink:0; }
+.app.studio-glass .timeline-zoom-content > .primary-screen-track {
+  order:100;position:sticky;bottom:0;z-index:12;
+  min-height:76px;flex-shrink:0;background:var(--glass-bg);
+  border-top:1px solid var(--glass-line);box-shadow:0 -5px 18px #0002;
+}
+.app.studio-glass .primary-screen-track .segment-track { min-height:76px; }
+.app.studio-glass .primary-screen-track .screen-clip-slot { height:62px; }
+.app.studio-glass .primary-screen-track .timeline-segment { height:56px;top:3px; }
+.app.studio-glass .primary-screen-track .lane-append-button {
+  width:40px;height:48px;min-width:40px;min-height:48px;
+  display:grid;place-items:center;border-radius:10px;
+  background:var(--feature-selected);color:var(--glass-text);border:1px solid var(--glass-line);
+}
+.app.studio-glass .primary-screen-track .lane-append-button svg { width:23px;height:23px; }
+.app.studio-glass .primary-screen-track .timeline-playhead { height:100%!important; }
+.app.studio-glass .timeline-navigation::before { content:'↑ Scroll up for camera, zoom, captions, music and cursor';display:block;padding:5px 12px;font-size:10px;color:var(--glass-muted);background:var(--glass-bg); }
+/* Empty feature lanes are the insertion targets; only footage has an append button. */
+.app.studio-glass .editor-lane :is(.track-add,.lane-add-clip,.empty-track-actions > button) { display:none!important; }
+.app.studio-glass .editor-lane .empty-track-actions { min-height:36px;cursor:crosshair; }
+.app.studio-glass .editor-lane .empty-track-actions::after { content:'Click or tap to add here';font-size:10px;color:var(--glass-muted);opacity:0;transition:opacity .15s; }
+.app.studio-glass .editor-lane:hover .empty-track-actions::after { opacity:1; }
+.timeline-add-overlay { position:fixed;inset:0;z-index:250; }
+.timeline-add-menu { position:fixed;width:240px;max-width:calc(100vw - 24px);padding:14px;display:flex;gap:8px;flex-wrap:wrap;border:1px solid var(--glass-line);border-radius:12px;background:var(--glass-bg);color:var(--glass-text);box-shadow:0 12px 40px #0005; }
+.timeline-add-menu strong { flex-basis:100%;font-size:12px;margin-bottom:6px; }
+.timeline-add-menu button { padding:8px 12px;border:1px solid var(--glass-line);border-radius:7px;background:var(--feature-input);color:var(--glass-text); }
+/* Balanced playback strip: time left, playback center, edit history right. */
+.app.studio-glass #timeline-playback-slot { width:100%;flex:1 0 100%; }
+.app.studio-glass #timeline-playback-slot .transport { width:100%;display:block; }
+.app.studio-glass #timeline-playback-slot .transport-playback,
+.app.studio-glass .transport > .transport-playback { display:grid;grid-template-columns:minmax(0,1fr) 40px minmax(0,1fr);align-items:center;width:100%;gap:18px; }
+.app.studio-glass .transport-playback .transport-time { grid-column:1;grid-row:1;justify-self:start; }
+.app.studio-glass .transport-playback .transport-play { grid-column:2;grid-row:1;justify-self:center; }
+.app.studio-glass .transport-history { grid-column:3;grid-row:1;display:flex;justify-self:end;gap:6px; }
+.app.studio-glass .transport-history button { display:grid;place-items:center;width:32px;height:32px;padding:0;background:var(--feature-input);color:var(--glass-text);border:1px solid var(--glass-line);border-radius:7px; }
+.app.studio-glass .transport-playback > .timeline-icon,
+.app.studio-glass #timeline-playback-slot .transport-actions { display:none; }
+@media(max-width:400px) { .app.studio-glass #timeline-playback-slot .transport-playback { gap:8px; } .app.studio-glass .transport-time { font-size:10px; } }
+/* Primary actions share one balanced playback row. */
+.app.studio-glass #timeline-playback-slot .transport-playback { grid-template-columns:minmax(80px,1fr) 32px auto minmax(70px,1fr);gap:8px; }
+.app.studio-glass #playback-edit-tools-slot { grid-column:3;grid-row:1; }
+.app.studio-glass .transport-history { grid-column:4; }
+.app.studio-glass .playback-edit-tools { display:flex;align-items:center;gap:6px; }
+.app.studio-glass .playback-edit-tools > button { display:grid!important;place-items:center;width:30px;min-width:30px;height:30px;min-height:30px;padding:0;border-radius:7px;border:1px solid var(--glass-line);background:var(--feature-input);color:var(--glass-text); }
+.app.studio-glass .playback-edit-tools > button > span:not(.canvas-color-icon) { display:none; }
+.app.studio-glass .shared-timeline-toolbar > .timeline-tools:has(.playback-edit-tools),
+.app.studio-glass .shared-timeline-toolbar > .timeline-tools:empty { display:none; }
+@media(max-width:400px) {
+  .app.studio-glass #timeline-playback-slot .transport-playback { grid-template-columns:minmax(64px,1fr) 28px auto 58px;gap:4px; }
+  .app.studio-glass .playback-edit-tools { gap:3px; }
+  .app.studio-glass .playback-edit-tools > button,.app.studio-glass .transport-history button { width:27px;min-width:27px;height:28px;min-height:28px; }
+  .app.studio-glass .transport-history { gap:3px; }
+}
+
+.app.studio-glass .timeline-navigation::before { display:none; }
+.app.studio-glass .shared-timeline { --timeline-toolbar-height:58px; }
+.app.studio-glass .timeline-sticky-navigation {
+  position:sticky;top:var(--timeline-toolbar-height);z-index:20;
+  padding:6px 12px 3px;
+  background:color-mix(in srgb,var(--glass-bg) 88%,transparent);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--glass-line);
+}
+.app.studio-glass .timeline-sticky-navigation > span { display:block;font-size:10px;color:var(--glass-muted);margin-bottom:4px; }
+.app.studio-glass .timeline-top-scroll { width:100%;height:12px;overflow-x:scroll;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--glass-muted) 65%,transparent) #ffffff09; }
+.app.studio-glass .timeline-top-scroll > div { height:1px; }
+.app.studio-glass .timeline-top-scroll::-webkit-scrollbar { height:6px; }
+.app.studio-glass .timeline-top-scroll::-webkit-scrollbar-track { background:#ffffff0b;border-radius:99px; }
+.app.studio-glass .timeline-top-scroll::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--glass-muted) 60%,transparent);border:1px solid var(--glass-line);border-radius:99px; }
+
+/* One horizontal scrollbar at the top; a separate subtle vertical track scrollbar. */
+.app.studio-glass .shared-timeline {
+  scrollbar-width:thin;
+  scrollbar-color:var(--glass-muted) transparent;
+}
+.app.studio-glass .shared-timeline::-webkit-scrollbar { width:5px;height:0; }
+.app.studio-glass .shared-timeline::-webkit-scrollbar-track { background:transparent; }
+.app.studio-glass .shared-timeline::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--glass-muted) 55%,transparent);border-radius:99px;border:0; }
+.app.studio-glass .timeline-viewport { scrollbar-width:none; }
+.app.studio-glass .timeline-viewport::-webkit-scrollbar { display:none;width:0;height:0; }
+.app.studio-glass .timeline-top-scroll {
+  height:9px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--glass-muted) transparent;
+}
+.app.studio-glass .timeline-top-scroll::-webkit-scrollbar { height:5px;width:0; }
+.app.studio-glass .timeline-top-scroll::-webkit-scrollbar-track { background:transparent; }
+.app.studio-glass .timeline-top-scroll::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--glass-muted) 55%,transparent);border:0;border-radius:99px; }
+
+/* Clip paint stays inside the footage lane, including while horizontally panning. */
+.app.studio-glass .primary-screen-track { overflow:hidden;isolation:isolate; }
+.app.studio-glass .primary-screen-track .segment-track { overflow:hidden;position:relative; }
+.app.studio-glass .primary-screen-track .screen-clip-slot { overflow:hidden;isolation:isolate;flex-basis:0; }
+.app.studio-glass .primary-screen-track .timeline-segment { max-width:100%;background-clip:padding-box; }
+.app.studio-glass .primary-screen-track > .timeline-track-name { position:relative;z-index:15;background:var(--glass-bg); }
+
+/* Keep the footage label anchored to the visible left edge when panning. */
+.app.studio-glass .timeline-zoom-content > .primary-screen-track {
+  overflow:clip;
+}
+.app.studio-glass .primary-screen-track > .timeline-track-name {
+  position:sticky;
+  left:0;
+  z-index:25;
+  align-self:stretch;
+  background:var(--glass-bg);
+  box-shadow:1px 0 0 var(--glass-line);
+}
+
+/* Web timeline zoom is gesture-driven; keep only the separate top scroll track. */
+body:not(.native-mac-editor) .app.studio-glass #timeline-scale-slot,
+body:not(.native-mac-editor) .app.studio-glass .timeline-navigation > .timeline-scale-controls {
+  display:none!important;
+}
+
+/* Explicit footage columns prevent the timed area from consuming the label/append space. */
+.app.studio-glass .timeline-zoom-content > .primary-screen-track {
+  display:grid!important;
+  grid-template-columns:var(--timeline-label-width) minmax(0,1fr) 52px;
+  align-items:center;
+  width:100%;padding:0;
+  overflow:visible;
+}
+.app.studio-glass .primary-screen-track > .segment-track {
+  grid-column:2;grid-row:1;
+  display:flex;align-items:center;gap:4px;
+  width:calc(100% * var(--timeline-clip-scale,1));
+  min-width:0;max-width:100%;padding:0 8px;
+  box-sizing:border-box;overflow:hidden;
+}
+.app.studio-glass .primary-screen-track > .timeline-track-name {
+  grid-column:1;grid-row:1;height:76px;min-height:76px;
+  position:sticky;left:0;z-index:25;
+}
+.app.studio-glass .primary-screen-track > .lane-append-button {
+  grid-column:3;grid-row:1;position:sticky;right:6px;justify-self:center;z-index:26;
+}
+.app.studio-glass .primary-screen-track .screen-clip-slot { flex-shrink:1;min-width:0; }
+.app.studio-glass .primary-screen-track .timeline-segment { box-sizing:border-box; }
+.app.studio-glass .timeline-ruler-viewport { overflow:hidden;width:100%; }
+.app.studio-glass .timeline-ruler-content { min-width:100%; }
+.app.studio-glass .timeline-ruler-content > .ruler {
+  position:relative;margin-left:var(--timeline-label-width);height:34px;
+  width:calc((100% - var(--timeline-label-width) - 52px) * var(--timeline-clip-scale,1));
+  background:var(--glass-bg);border-bottom:1px solid var(--glass-line);box-sizing:border-box;
+}
+.app.studio-glass .timeline-sticky-navigation { padding-inline:0; }
+.app.studio-glass .timeline-sticky-navigation > span { padding-inline:12px; }
+
+/* Empty lanes retain the same time origin as populated clip lanes. */
+.app.studio-glass .timeline-zoom-content .editor-lane > .empty-track-actions {
+  grid-column:2;position:relative;
+  width:calc(100% * var(--timeline-clip-scale,1));
+  min-width:0;box-sizing:border-box;min-height:36px;
+  margin:0;padding:0 8px;overflow:hidden;
+}
+.app.studio-glass .timeline-zoom-content .editor-lane > .timeline-track-name { position:sticky;left:0;z-index:10;background:var(--glass-bg); }
+
+/* Mobile arrangement stays focused on direct manipulation of the preview. */
+@media(max-width:800px) {
+  .app.studio-glass #mobile-layout-slot .arrange-precision,
+  .app.studio-glass #mobile-layout-slot .arrange-panel-footer,
+  .app.studio-glass #mobile-layout-slot .layout-size-presets { display:none!important; }
+  .app.studio-glass #mobile-layout-slot .arrange-target-tabs {
+    display:flex;gap:6px;padding:5px;margin:12px 0;
+    background:var(--feature-input);border:1px solid var(--glass-line);border-radius:10px;
+  }
+  .app.studio-glass #mobile-layout-slot .arrange-target-tabs button {
+    flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+    min-height:38px;background:transparent;color:var(--glass-text);
+    border:1px solid transparent;border-radius:7px;opacity:1;
+  }
+  .app.studio-glass #mobile-layout-slot .arrange-target-tabs button:is(.active,[aria-pressed=true],[aria-selected=true]) {
+    background:var(--feature-selected);color:var(--glass-text);border-color:var(--feature-accent);
+  }
+  .app.studio-glass #mobile-layout-slot .arrange-target-tabs button:disabled { opacity:.45; }
+}
+
+/* Track labels stay beneath the playback bar and sticky time navigation. */
+.app.studio-glass .shared-timeline-toolbar {
+  position:sticky;top:0;z-index:60;
+  isolation:isolate;
+  background:var(--glass-bg);
+}
+.app.studio-glass .timeline-sticky-navigation { z-index:50;background:var(--glass-bg); }
+.app.studio-glass .timeline-viewport { position:relative;z-index:0;isolation:isolate; }
+.app.studio-glass .studio-preview-stage { position:relative;z-index:2; }
+
+/* Zoom controls wrap inside the feature sheet rather than retaining desktop rows. */
+@media(max-width:800px) {
+  .app.studio-glass .inspector.mobile-feature-open { overflow-x:hidden;box-sizing:border-box; }
+  .app.studio-glass .mobile-feature-open :is(.feature-inspector-panel,.zoom-lane-editor,.zoom-follow-controls) { min-width:0;max-width:100%;box-sizing:border-box; }
+  .app.studio-glass .mobile-feature-open .zoom-follow-controls { display:flex!important;flex-direction:column;align-items:stretch;gap:14px;width:100%; }
+  .app.studio-glass .mobile-feature-open .zoom-follow-controls > * { min-width:0;max-width:100%;margin:0;box-sizing:border-box; }
+  .app.studio-glass .mobile-feature-open .pointer-zoom-heading { display:flex;flex-direction:column;align-items:stretch;gap:10px; }
+  .app.studio-glass .mobile-feature-open .pointer-zoom-heading button { white-space:normal;width:100%; }
+  .app.studio-glass .mobile-feature-open .auto-zoom-switch { display:flex!important;align-items:center;justify-content:flex-start;gap:8px;width:100%;white-space:normal; }
+  .app.studio-glass .mobile-feature-open .auto-zoom-switch input[type=checkbox] { flex:0 0 16px;width:16px;min-width:16px;margin:0; }
+  .app.studio-glass .mobile-feature-open .pointer-help { white-space:normal;overflow-wrap:anywhere; }
+  .app.studio-glass .mobile-feature-open input[type=range] { min-width:0;max-width:100%; }
+}
+
+/* Mobile feature options are a persistent bottom panel, not a modal overlay. */
+@media(max-width:800px) {
+  .app.studio-glass .editor:has(> .inspector.mobile-feature-open)::before { display:none; }
+  .app.studio-glass .inspector.mobile-feature-open {
+    position:fixed;inset:auto 0 0;
+    width:100%!important;height:fit-content!important;
+    max-height:48dvh!important;min-height:0;
+    border-radius:16px 16px 0 0;
+    border:1px solid var(--glass-line);border-bottom:0;
+    background:var(--glass-bg);box-shadow:0 -8px 28px #0003;
+    padding-bottom:env(safe-area-inset-bottom);
+    overflow-y:auto;overflow-x:hidden;
+    animation:none;
+  }
+  .app.studio-glass .inspector.mobile-feature-open .mobile-feature-heading { border-radius:16px 16px 0 0; }
+}
+
+/* VN-inspired mobile editing: compact bottom tray and explicit primary cut action. */
+@media(max-width:800px) {
+  .app.studio-glass .inspector.mobile-feature-open {
+    max-height:42dvh!important;border-radius:12px 12px 0 0;
+    box-shadow:0 -4px 20px #0002;
+  }
+  .app.studio-glass .mobile-feature-heading { padding:10px 14px;min-height:48px; }
+  .app.studio-glass .mobile-feature-heading strong { font-size:12px; }
+  .app.studio-glass .mobile-feature-heading button { min-height:32px;padding:6px 14px; }
+  .app.studio-glass .inspector.mobile-feature-open .lane-inline-editor { padding:14px; }
+  .app.studio-glass .playback-edit-tools > button[aria-label='Split at playhead'] {
+    width:auto;min-width:54px;display:flex!important;gap:5px;padding:0 7px;
+    border-color:var(--feature-accent);
+  }
+  .app.studio-glass .playback-edit-tools > button[aria-label='Split at playhead'] > span { display:inline;font-size:10px; }
+  .app.studio-glass #timeline-playback-slot .transport-playback { gap:6px; }
+}
+@media(max-width:380px) {
+  .app.studio-glass .playback-edit-tools > button[aria-label='Split at playhead'] { min-width:30px;width:30px;padding:0; }
+  .app.studio-glass .playback-edit-tools > button[aria-label='Split at playhead'] > span { display:none; }
+}
+
+/* Arrangement controls use the same contrast and sizing in both sidebar and mobile. */
+.app.studio-glass .arrange-panel .arrange-target-tabs {
+  display:flex;gap:5px;padding:5px;margin:16px 0;
+  border:1px solid var(--glass-line);border-radius:10px;background:var(--feature-input);
+}
+.app.studio-glass .arrange-panel .arrange-target-tabs button {
+  display:flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:0;
+  min-height:36px;padding:8px 6px;border:1px solid transparent;border-radius:7px;
+  background:transparent;color:var(--glass-text);font-size:12px;opacity:1;
+}
+.app.studio-glass .arrange-panel .arrange-target-tabs button:is(.active,[aria-pressed=true],[aria-selected=true]) {
+  background:var(--feature-selected);color:var(--glass-text);border-color:var(--feature-accent);
+}
+.app.studio-glass .arrange-panel .arrange-target-tabs button:disabled { opacity:.4; }
+.app.studio-glass .arrange-panel .arrange-target-tabs button svg { color:currentColor; }
+.app.studio-glass .arrange-panel .arrange-precision { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px; }
+.app.studio-glass .arrange-panel .arrange-precision label { min-width:0;font-size:10px; }
+.app.studio-glass .arrange-panel .arrange-precision input { width:100%;min-width:0;box-sizing:border-box;padding:9px; }
+.app.studio-glass .arrange-panel .arrange-panel-footer { gap:10px;align-items:center;margin:14px 0;padding-top:12px;border-color:var(--glass-line); }
+.app.studio-glass .arrange-panel .layout-size-presets { display:flex;gap:6px;margin:12px 0;padding:0;background:transparent;border:0; }
+.app.studio-glass .arrange-panel .layout-size-presets button { min-width:0;flex:1;font-size:11px;padding:9px 7px; }
+@media(max-width:800px) {
+  .app.studio-glass #mobile-layout-slot .arrange-precision,
+  .app.studio-glass #mobile-layout-slot .arrange-panel-footer,
+  .app.studio-glass #mobile-layout-slot .layout-size-presets { display:none!important; }
+}
+.app.studio-glass .music-independent-slot { height:30px;top:3px; }
+.app.studio-glass .music-independent-slot .editor-music-clip { position:relative!important;left:auto!important;width:100%!important;height:30px; }

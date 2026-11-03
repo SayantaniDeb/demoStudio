@@ -2,6 +2,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { doc, getFirestore, setDoc } from 'firebase/firestore';
 export type Settings = {
+  musicClips?: {id:string;start:number;end:number;offset:number;track:'none'|'warm'|'pulse'|'ambient';volume:number;asset?:string;name?:string}[];
+  featureRanges?: Record<string, {start:number;end:number}>;
+  clipEffects?: Record<string, import('./clipEffects').ClipEffects>;
+  captionSourceLanguage?: 'auto'|'hi'|'en'|'bn';
+  captionOutputLanguage?: 'original' | 'english';
+  captionDetectedLanguage?: string;
+  captionVariants?: Partial<Record<'original'|'english', import('./captions').Caption[]>>;
+  libraryRecordingID?: string;
+  screenAssets?: import('./screenMedia').ScreenAsset[];
   backgroundPreset?: string;
   captionLayout?: { x: number; y: number; scale: number };
   clipVolumes?: Record<string, number>;
@@ -18,6 +27,7 @@ export type Settings = {
       screenX: number;
       screenY: number;
       screenScale: number;
+      screenFit?: 'contain' | 'cover';
       cameraX?: number;
       cameraY?: number;
       cameraSize?: number;
@@ -25,6 +35,7 @@ export type Settings = {
   >;
   mobileClipFraming?: Record<string, 'fit' | 'follow'>;
   cameraTakes?: {
+    hidden?: boolean;
     id: string;
     start: number;
     end: number;
@@ -34,6 +45,7 @@ export type Settings = {
   }[];
   cameraClipsEdited?: boolean;
   cameraDuration?: number;
+  cameraCutout?: boolean;
   cameraFocusX?: number;
   cameraFocusY?: number;
   mobileCameraPosition?:
@@ -41,6 +53,9 @@ export type Settings = {
   mobileCameraLayout?: 'outside' | 'overlay';
   outputFormat?: '16:9' | '9:16';
   cameraLayout?: 'beside' | 'overlay';
+  showCursor?: boolean;
+  screenRadius?: number;
+  screenShadow?: number;
   cameraShape?: 'circle' | 'rounded' | 'square';
   cameraPosition?:
     'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
@@ -80,6 +95,7 @@ export type Settings = {
   focusY: number;
   background: string;
   camera: boolean;
+  captionAppearance?: import('./captions').CaptionAppearance;
   captionStyle?: import('./captions').CaptionStyle;
   captions?: import('./captions').Caption[];
   captionsEnabled?: boolean;
@@ -167,7 +183,7 @@ export async function clearRecordingAssets() {
         const key = String(item.key);
         if (
           ['screen', 'camera', 'primary-media-type'].includes(key) ||
-          key.startsWith('camera-take-')
+          key.startsWith('camera-take-') || key.startsWith('recording-')
         )
           item.delete();
         item.continue();

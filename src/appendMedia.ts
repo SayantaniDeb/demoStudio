@@ -1,9 +1,11 @@
+import { isNativeMac, joinNativeVideos } from './nativeMac';
 import {
   ALL_FORMATS,
   Input,
   UrlSource,
   Output,
   WebMOutputFormat,
+  Mp4OutputFormat,
   BufferTarget,
   CanvasSource,
   VideoSampleSink,
@@ -17,9 +19,11 @@ export async function joinRecordingSources(
   onProgress: (value: number) => void,
 ) {
   if (!sources.length) throw Error('Choose at least one video clip.');
+  if (isNativeMac()) return joinNativeVideos(sources, onProgress);
   const inputs: Input[] = [],
     target = new BufferTarget();
-  let output: Output<WebMOutputFormat, BufferTarget> | undefined;
+  const native = isNativeMac();
+  let output: Output<WebMOutputFormat | Mp4OutputFormat, BufferTarget> | undefined;
   try {
     const clips = [];
     for (const source of sources) {
@@ -46,12 +50,12 @@ export async function joinRecordingSources(
     canvas.width = clips[0].video.displayWidth;
     canvas.height = clips[0].video.displayHeight;
     const ctx = canvas.getContext('2d')!;
-    output = new Output({ format: new WebMOutputFormat(), target });
-    const videoSource = new CanvasSource(canvas, { codec: 'vp8', bitrate: 16000000 });
+    output = new Output({ format: native ? new Mp4OutputFormat() : new WebMOutputFormat(), target });
+    const videoSource = new CanvasSource(canvas, { codec: native ? 'avc' : 'vp8', bitrate: 16000000 });
     output.addVideoTrack(videoSource, { frameRate: 30 });
     const audioSource = clips.some((c) => c.audio)
       ? new AudioSampleSource({
-          codec: 'opus',
+          codec: native ? 'aac' : 'opus',
           bitrate: 192000,
           transform: { sampleRate: 48000, numberOfChannels: 2 },
         })
@@ -146,7 +150,7 @@ export async function joinRecordingSources(
       throw Error('The joined clip could not be encoded. Your original footage is unchanged.');
     onProgress(100);
     return {
-      blob: new Blob([target.buffer], { type: 'video/webm' }),
+      blob: new Blob([target.buffer], { type: native ? 'video/mp4' : 'video/webm' }),
       duration: total,
       lengths: clips.map((c) => c.duration),
     };

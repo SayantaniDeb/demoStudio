@@ -1,3 +1,20 @@
+import { clipEffectKeys, clipEffectSettings, editClipEffects, effectsSnapshot } from './clipEffects';
+import { StudioSlot } from './components/StudioSlot';
+import { cameraFade } from './cameraFade';
+import { LoadingView } from './components/LoadingView';
+import { recordedPointerAt } from './recordedPointer';
+import { ClipWaveform } from './components/ClipWaveform';
+import { InspectorControls } from './components/InspectorControls';
+import { moveTimelineClip } from './moveTimelineClip';
+import { TimelineTicks } from './components/TimelineTicks';
+import { pointerLayers } from './automaticPointer';
+import { PointerPreview } from './components/PointerPreview';
+import { TimelineViewport } from './components/TimelineViewport';
+import { configureScreenMedia, disconnectScreenMedia, mediaTime, mediaDuration, seekMediaTime, screenBlobDuration } from './screenMedia';
+import { useEditHistory } from './useEditHistory';
+import { Undo2, Redo2 } from 'lucide-react';
+import { screenRange, trimScreenEdge, screenOpacity, cameraSoloMix } from './screenTrims';
+import { placeCamera, soloCameraRect, screenMediaScale, zoomedScreenBounds, expandedMediaOffset, mobileZoomPlacement } from './layoutGeometry';
 import { backgroundPresets, backgroundCss, paintCanvasBackground } from './backgrounds';
 import { EmptyStudioTimeline } from './components/EmptyStudioTimeline';
 import { EmptyStudioCanvas } from './components/EmptyStudioCanvas';
@@ -9,6 +26,10 @@ const AIDirector = lazy(() => import('./remotion/AIDirector'));
 const RemotionDesignStudio = lazy(() => import('./remotion/RemotionDesignStudio'));
 import { timelineZoom } from './timelineZoom';
 import { HomePage } from './HomePage';
+import { CaptionDesignControls } from './components/CaptionDesignControls';
+import { CaptionLanguageChoice } from './components/CaptionLanguageChoice';
+const MediaWorkspace = lazy(() => import('./MediaWorkspace').then(module => ({default: module.MediaWorkspace})));
+import { isNativeMac, showNativeRecorder, saveNativeRecordingName, setNativePreviewFullscreen, setNativeTheme } from './nativeMac';
 import { Home, MonitorOff, CameraOff, MicOff, Scan, ZoomIn, KeyRound } from 'lucide-react';
 import { StudioStoryboard } from './StudioStoryboard';
 import { groqHeaders, setUserGroqKey } from './aiKey';
@@ -16,6 +37,8 @@ import { Smartphone } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
 import { detectCameraFace } from './faceFocus';
+import { paintAutomaticCursor } from './cursorMorph';
+import { prepareCameraCutout, prepareCameraCutoutFrame, cameraCutoutFrame, resetCameraCutoutFrames } from './cameraCutout';
 import { CreativeEditor } from './CreativeEditor';
 import { creativeChapters, creativeDuration, creativeSVG } from './creative';
 import { validateCreative } from '../shared/creative.mjs';
@@ -118,106 +141,80 @@ export default function App() {
     appendCapture = useRef(false),
     appendImport = useRef(false),
     appendCamera = useRef(false);
-  const [joining, setJoining] = useState(false),
-    [joinProgress, setJoinProgress] = useState(0);
+  const [joining, setJoining] = useState(false);
   async function appendScreenBlob(
     blob: Blob,
     length?: number,
     cameraSession?: NonNullable<typeof liveCapture.current>,
   ) {
     if (!source) return receive(blob, 'screen');
-    const nextURL = URL.createObjectURL(blob),
-      previousDuration = duration,
-      previousSegments = recordingSegments.map((s) => ({ ...s })),
+    const previousDuration = duration,
+      previousSegments = recordingSegments.map((s) => settings.screenVisible === false ? ({ ...s, visibleStart: s.start, visibleEnd: s.start }) : ({ ...s })),
       previousCameraClips = allCameraClips();
     setJoining(true);
-    setJoinProgress(0);
-    soundPlayer.current.stop();
-    video.current?.pause();
-    setPlaying(false);
+    soundPlayer.current.stop(); video.current?.pause(); setPlaying(false);
     try {
-      const { joinRecordingSources } = await import('./appendMedia');
-      const joined = await joinRecordingSources(
-        [
-          { url: source, duration: previousDuration },
-          { url: nextURL, duration: length },
-        ],
-        setJoinProgress,
-      );
-      await storeAsset('screen', joined.blob);
-      await storeAsset('primary-media-type', new Blob(['screen']));
-      localStorage.setItem('frame-duration', String(joined.duration));
-      pendingSourceSeek.current = previousDuration;
-      setSource(URL.createObjectURL(joined.blob));
-      setDuration(joined.duration);
+      const clipDuration = length || await screenBlobDuration(blob);
       const id = 'recording-' + crypto.randomUUID();
+      const assets = settings.screenAssets || [{id: 'original', key: 'screen', start: 0, duration: previousDuration}];
+      const start = Math.max(...assets.map((asset) => asset.start + asset.duration));
+      await storeAsset(id, blob);
       await Promise.all(cameraSession?.cameraJobs || []);
-      setSettings((old) => ({
-        ...old,
-        primaryMedia: 'screen',
-        screenVisible: true,
-        trimEnd: 0,
-        recordingSegments: [
-          ...previousSegments,
-          { id, start: previousDuration, end: joined.duration },
-        ],
+      setScreenAssetURLs((old) => ({...old, [id]: URL.createObjectURL(blob)}));
+      pendingSourceSeek.current = start;
+      const total = start + clipDuration;
+      localStorage.setItem('frame-duration', String(total));
+      setDuration(total);
+      setSettings((old) => ({...old, primaryMedia: 'screen', screenVisible: true, trimEnd: 0,
+        screenAssets: [...assets, {id, key: id, start, duration: clipDuration}],
+        recordingSegments: [...previousSegments, {id, start, end: total}],
         cameraClipsEdited: true,
-        cameraTakes: [
-          ...previousCameraClips,
-          ...(cameraSession?.cameraClips || []).map((clip) => ({
-            ...clip,
-            start: clip.start + previousDuration,
-            end: clip.end + previousDuration,
-          })),
-        ],
+        cameraTakes: [...previousCameraClips, ...(cameraSession?.cameraClips || []).map((clip) => ({...clip, start: clip.start + start, end: clip.end + start}))],
         camera: old.camera || Boolean(cameraSession?.cameraClips.length),
       }));
       setSelectedSegment(previousSegments.length);
       recordSegment.current = previousSegments.length;
       setTime(durationOf(previousSegments));
-      setCompletedExport(null);
-      setFloatingSaveStatus('saved');
-      announce('Clip appended. Earlier clips and edits are kept.');
+      setCompletedExport(null); setFloatingSaveStatus('saved');
+      announce('Independent clip added. Earlier clips and edits are kept.');
       return true;
     } catch (error) {
-      setFloatingSaveStatus('error');
-      announce((error as Error).message);
-      return false;
-    } finally {
-      URL.revokeObjectURL(nextURL);
-      appendCapture.current = false;
-      setJoining(false);
-    }
+      setFloatingSaveStatus('error'); announce((error as Error).message); return false;
+    } finally { appendCapture.current = false; setJoining(false); }
   }
   async function extendScreenForCamera(end: number) {
     if (end <= duration) return;
-    const extra = end - duration,
-      previousSegments = recordingSegments.map((s) => ({ ...s }));
-    setJoining(true);
-    setJoinProgress(0);
-    try {
-      const { joinRecordingSources } = await import('./appendMedia');
-      const joined = await joinRecordingSources(
-        [{ url: source, duration, holdLastFrameFor: extra }],
-        setJoinProgress,
-      );
-      await storeAsset('screen', joined.blob);
-      localStorage.setItem('frame-duration', String(end));
-      pendingSourceSeek.current = video.current?.currentTime || 0;
-      setSource(URL.createObjectURL(joined.blob));
-      setDuration(end);
-      setSettings((old) => ({
-        ...old,
-        trimEnd: 0,
-        recordingSegments: [
-          ...previousSegments,
-          { id: 'hold-' + crypto.randomUUID(), start: duration, end },
-        ],
-      }));
-      announce('Timeline extended for your camera clip; the last screen frame is held.');
-    } finally {
-      setJoining(false);
-    }
+    const id = 'blank-' + crypto.randomUUID();
+    const assets = settings.screenAssets || [{id: 'original', key: 'screen', start: 0, duration}];
+    setSettings((old) => ({...old, trimEnd: 0,
+      screenAssets: [...assets, {id, key: 'screen', start: duration, duration: end - duration, blank: true}],
+      recordingSegments: [...recordingSegments, {id, start: duration, end, visibleEnd: duration}],
+    }));
+    setDuration(end);
+    localStorage.setItem('frame-duration', String(end));
+    announce('Canvas time added for your camera clip. Screen recordings remain independent.');
+  }
+  const draggedClipOffset = useRef(0);
+  function dropScreenClip(event: React.DragEvent<HTMLDivElement>) {
+    if (recreated || settings.primaryMedia === 'camera') return;
+    event.preventDefault(); event.stopPropagation();
+    const index = draggedSegment.current; draggedSegment.current = null;
+    if (index === null || exporting || recording) return;
+    const lane = event.currentTarget.querySelector<HTMLElement>('.segment-track') || event.currentTarget;
+    const box = lane.getBoundingClientRect();
+    const requested = Math.round(Math.max(0, (event.clientX - box.left) / box.width * timelineDuration - draggedClipOffset.current) * 10) / 10;
+    let rawEnd = duration;
+    const assets = [...(settings.screenAssets || [{id:'original',key:'screen',start:0,duration}])];
+    const next = moveTimelineClip(recordingSegments, index, requested, (length) => {
+      const id = 'gap-' + crypto.randomUUID(), start = rawEnd; rawEnd += length;
+      assets.push({id,key:'screen',start,duration:length,blank:true});
+      return {id,start,end:rawEnd,visibleStart:start,visibleEnd:start,gap:true};
+    });
+    if (next === recordingSegments) return;
+    setSettings(old => ({...old,screenAssets:assets,recordingSegments:next}));
+    setDuration(rawEnd); localStorage.setItem('frame-duration',String(rawEnd));
+    setSelectedSegment(next.findIndex(s => s.id === recordingSegments[index]?.id));
+    setCompletedExport(null); announce('Clip moved. Other clips stay in place. Undo restores its previous position.');
   }
   function openAppendScreen() {
     if (recording || exporting || joining) return;
@@ -236,12 +233,16 @@ export default function App() {
       edited += segment.end - segment.start;
     }
     seek(Math.min(displayDuration, edited));
+    setTimelineSelection('camera');
+    setSelectedCameraClip(null);
     setCameraSetupOpen(true);
+    requestAnimationFrame(()=>{document.querySelector<HTMLElement>('.inspector')?.scrollTo({top:0,behavior:'smooth'});});
   }
+  const [laneAddMenu,setLaneAddMenu]=useState<{lane:string;time:number;x:number;y:number}|null>(null);
   const [laneTimes, setLaneTimes] = useState<Record<string, number>>({});
-  const [home, setHome] = useState(true);
+  const [home, setHome] = useState(() => !isNativeMac());
   const backgroundImage = useRef<HTMLImageElement | null>(null);
-  const [settings, setSettings] = useState<Settings>(() => {
+  const [settings, setSettings, undoSettings, canUndo, resetEditHistory, redoSettings, canRedo] = useEditHistory<Settings>(() => {
     try {
       const saved = { ...defaults, ...JSON.parse(localStorage.getItem('frame-settings') || '{}') };
       if (saved.title === 'Untitled product demo') {
@@ -253,6 +254,23 @@ export default function App() {
       return defaults;
     }
   });
+  const [savingName, setSavingName] = useState(false);
+  async function saveProjectName() {
+    const title = settings.title.trim();
+    if (!title || savingName) return;
+    setSavingName(true);
+    try {
+      if (isNativeMac() && source) {
+        const saved = await saveNativeRecordingName(title, settings.libraryRecordingID, source);
+        setSettings((old) => ({...old, title: saved.name, titleAuto: false, libraryRecordingID: saved.recordingID}));
+        announce('Name saved. It now appears in your library.');
+      } else {
+        update('title', title);
+        announce('Project name saved on this device.');
+      }
+    } catch (error) { announce((error as Error).message); }
+    finally { setSavingName(false); }
+  }
   const [captionAudioSource, setCaptionAudioSource] = useState('screen');
   const [captionBusy, setCaptionBusy] = useState(false),
     [captionProgress, setCaptionProgress] = useState(0);
@@ -294,6 +312,26 @@ export default function App() {
   const [captureSurface, setCaptureSurface] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [backgroundTab, setBackgroundTab] = useState<'wallpaper' | 'gradient' | 'color' | 'image'>('wallpaper');
+  const [mediaWorkspace, setMediaWorkspace] = useState(false);
+  const [fromFileStudio, setFromFileStudio] = useState(false);
+  const [fileStudioFile, setFileStudioFile] = useState<File|null>(null);
+  const [darkTheme, setDarkTheme] = useState(() => localStorage.getItem('demotake-theme') !== 'light');
+  useEffect(() => {localStorage.setItem('demotake-theme',darkTheme ? 'dark' : 'light');document.documentElement.dataset.demotakeTheme = darkTheme ? 'dark' : 'light';setNativeTheme(darkTheme);},[darkTheme]);
+  const [previewFullscreen, setPreviewFullscreen] = useState(false);
+  useEffect(() => {
+    document.body.classList.toggle('native-mac-editor', isNativeMac());
+    const exit = () => setPreviewFullscreen(false);
+    window.addEventListener('demotake-exit-fullscreen', exit);
+    return () => window.removeEventListener('demotake-exit-fullscreen', exit);
+  }, []);
+  useEffect(() => { setNativePreviewFullscreen(previewFullscreen); }, [previewFullscreen]);
+  useEffect(() => {
+    if (!previewFullscreen) return;
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setPreviewFullscreen(false); };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [previewFullscreen]);
   const previewCanvas = useRef<HTMLCanvasElement>(null);
   const liveCamera = useRef<HTMLVideoElement>(null);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
@@ -378,7 +416,29 @@ export default function App() {
       alive = false;
     };
   }, []);
+  const [mobileFeatureOpen,setMobileFeatureOpen]=useState(false);
+  const [mobileToolsOpen,setMobileToolsOpen]=useState(false);
+  useEffect(()=>{
+    if(!mobileFeatureOpen)return;
+    const previous=document.activeElement as HTMLElement|null;
+    const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')setMobileFeatureOpen(false);};
+    window.addEventListener('keydown',onKey);
+    const timer=setTimeout(()=>document.querySelector<HTMLButtonElement>('.mobile-feature-heading button')?.focus(),0);
+    return()=>{clearTimeout(timer);window.removeEventListener('keydown',onKey);previous?.focus();};
+  },[mobileFeatureOpen]);
   const [zoomEditorClip, setZoomEditorClip] = useState<string | null>(null);
+  const [selectedMusicClip,setSelectedMusicClip]=useState<string|null>(null);
+  const pendingMusicTime=useRef<number|null>(null);
+  function musicClips() {
+    return settings.musicClips ?? ((settings.musicName || (settings.demoAudio||defaultAudio).musicTrack !== 'none') ? [{id:'legacy-music',start:settings.featureRanges?.music?.start||0,end:settings.featureRanges?.music?.end??displayDuration,offset:0,track:(settings.demoAudio||defaultAudio).musicTrack||'none' as const,volume:(settings.demoAudio||defaultAudio).musicVolume,asset:settings.musicName?'music':undefined,name:settings.musicName}] : []);
+  }
+  function applyMusicClip() {
+    const list=musicClips(), existing=list.find(c=>c.id===selectedMusicClip);
+    const start=existing?.start??pendingMusicTime.current??time;
+    const clip={id:existing?.id||crypto.randomUUID(),start,end:existing?.end??displayDuration,offset:existing?.offset||0,track:(settings.demoAudio||defaultAudio).musicTrack||'none' as const,volume:(settings.demoAudio||defaultAudio).musicVolume,asset:settings.musicName?(existing?.asset||'music'):undefined,name:settings.musicName};
+    setSettings(old=>({...old,musicClips:existing?list.map(c=>c.id===existing.id?clip:c):[...list,clip]}));setSelectedMusicClip(clip.id);pendingMusicTime.current=null;
+    announce('Music clip applied. Drag its edges to trim.');
+  }
   const [musicEditorOpen, setMusicEditorOpen] = useState(false);
   const [cameraSetupOpen, setCameraSetupOpen] = useState(false);
   const cameraClipInput = useRef<HTMLInputElement>(null);
@@ -397,14 +457,18 @@ export default function App() {
         [id]: value,
       },
       zoomTrackEnabled: true,
-      autoZoom: false,
-      zoomFollowsPath: false,
+      clipEffects: editClipEffects(old, recordingSegments, id, {autoZoom: false, zoomFollowsPath: false}).clipEffects,
     }));
     cameraView.current = null;
   }
   const [timelineSelection, setTimelineSelection] = useState<
     'video' | 'camera' | 'zoom' | 'cursor' | 'caption' | 'music'
   >('video');
+  useEffect(() => {
+    setMusicEditorOpen(timelineSelection === 'music');
+    if (timelineSelection === 'cursor') setCursorExpanded(true);
+    if (timelineSelection === 'zoom') setZoomEditorClip(activeSegments[selectedSegment]?.id || null);
+  }, [timelineSelection]);
   const [captionSelection, setCaptionSelection] = useState<number | null>(null);
   function deleteTimelineSelection() {
     if (timelineSelection === 'cursor') {
@@ -419,7 +483,8 @@ export default function App() {
       return;
     }
     if (timelineSelection === 'music') {
-      removeMusicTrack();
+      setSettings(old=>({...old,musicClips:musicClips().filter(c=>c.id!==selectedMusicClip)}));
+      setSelectedMusicClip(null);
       setMusicEditorOpen(false);
       return;
     }
@@ -579,7 +644,7 @@ export default function App() {
     setSelectedCameraClip(null);
     update('screenVisible', false);
     announce(
-      'Screen removed from the composition. Add screen restores it. Camera footage is kept.',
+      'Screen removed. Use Undo to restore it, or Add screen to record new footage. Camera footage is kept.',
     );
   }
   function removeZoomTrack() {
@@ -612,7 +677,7 @@ export default function App() {
     void storeAsset('music', new Blob());
   }
   const [selectedCameraClip, setSelectedCameraClip] = useState<string | null>(null);
-  function allCameraClips() {
+  function allCameraClips(): NonNullable<Settings['cameraTakes']> {
     return [
       ...(!settings.cameraClipsEdited && camSource && cameraEnd() > 0
         ? [
@@ -737,7 +802,7 @@ export default function App() {
   function splitCameraClip() {
     const clips = allCameraClips(),
       clip = clips.find((c) => c.id === selectedCameraClip),
-      at = video.current?.currentTime || 0;
+      at = mediaTime(video.current) || 0;
     if (!clip || at <= clip.start + 0.1 || at >= clip.end - 0.1) {
       announce('Place the playhead inside the selected camera clip to split.');
       return;
@@ -787,12 +852,12 @@ export default function App() {
     const v = video.current;
     if (!v) return;
     const segment =
-      recordingSegments.find((s) => v.currentTime >= s.start && v.currentTime < s.end) ||
+      recordingSegments.find((s) => mediaTime(v) >= s.start && mediaTime(v) < s.end) ||
       recordingSegments[recordSegment.current];
     v.volume = clipVolume('screen:' + (segment?.id || 'recording'));
     const take =
       settings.camera && settings.primaryMedia !== 'camera'
-        ? activeCameraTake(v.currentTime)
+        ? activeCameraTake(mediaTime(v))
         : null;
     const current = take
       ? take.assetId === 'original' || take.id === 'original'
@@ -818,14 +883,14 @@ export default function App() {
   }, [settings.clipVolumes, settings.camera]);
   function cameraForTime(v: HTMLVideoElement) {
     syncClipAudio();
-    const take = activeCameraTake(v.currentTime);
+    const take = activeCameraTake(mediaTime(v));
     const c = take
       ? take.assetId === 'original' || take.id === 'original'
         ? camera.current
         : cameraTakeVideos.current[take.assetId || take.id]
       : null;
     if (take && c && c.readyState >= 2) {
-      const local = (take.sourceStart || 0) + v.currentTime - take.start;
+      const local = (take.sourceStart || 0) + mediaTime(v) - take.start;
       if (Math.abs(c.currentTime - local) > 0.12) c.currentTime = local;
       if (v.paused) {
         c.pause();
@@ -906,9 +971,9 @@ export default function App() {
         start: appending ? appendStart : mapped.time,
         end: appending ? Infinity : recordingSegments[mapped.index].end,
       };
-      video.current.currentTime = appending
+      seekMediaTime(video.current, appending
         ? Math.min(appendStart, Math.max(0, duration - 0.05))
-        : mapped.time;
+        : mapped.time);
       setPointerMode('off');
       soundPlayer.current.stop();
       if (video.current.seeking)
@@ -936,7 +1001,7 @@ export default function App() {
         const start = takeRange.current.start,
           end = appending
             ? start + (performance.now() - captureStarted) / 1000
-            : Math.min(takeRange.current.end, video.current?.currentTime || start);
+            : Math.min(takeRange.current.end, mediaTime(video.current) || start);
         stream!.getTracks().forEach((t) => t.stop());
         cameraTakeStream.current = null;
         cameraTakeRecorder.current = null;
@@ -1005,6 +1070,13 @@ export default function App() {
       setFloatingController(null);
     }
   }, [mobileView, floatingController]);
+  useEffect(() => {
+    if (!floatingController || floatingController.closed) return;
+    const doc = floatingController.document;
+    let theme = doc.getElementById('demotake-controller-theme') as HTMLStyleElement | null;
+    if (!theme) { theme = doc.createElement('style'); theme.id = 'demotake-controller-theme'; doc.head.appendChild(theme); }
+    theme.textContent = darkTheme ? 'body,.floating-capture,.floating-capture header{background:#191b21;color:#e5e8f0;border-color:#3a3f4b}.floating-capture p,.floating-capture small{color:#adb5c5}.floating-capture button,.floating-capture select{background:#242730;color:#e5e8f0;border-color:#3a3f4b}.floating-recording-result{background:#253322;border-color:#708855}.floating-recording-result a{color:#badb78}' : '';
+  }, [darkTheme, floatingController]);
   const [floatingSaveStatus, setFloatingSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
@@ -1157,6 +1229,7 @@ export default function App() {
     }
   }
   async function openRecordingController(forCameraTake = false) {
+    if (showNativeRecorder()) return null;
     if (mobileView) {
       announce('Import a video or camera clip on mobile.');
       return null;
@@ -1218,6 +1291,76 @@ export default function App() {
     setCaptureArmed(false);
   }
   const [source, setSource] = useState('');
+  const [screenAssetURLs, setScreenAssetURLs] = useState<Record<string, string>>({});
+  const screenURLsRef = useRef(screenAssetURLs);
+  screenURLsRef.current = screenAssetURLs;
+  useEffect(() => () => { Object.values(screenURLsRef.current).forEach((url) => URL.revokeObjectURL(url)); }, []);
+  useEffect(() => {
+    let alive = true;
+    for (const asset of settings.screenAssets || []) {
+      if (asset.key === 'screen' || screenAssetURLs[asset.id]) continue;
+      void loadAsset(asset.key).then((blob) => {
+        if (alive && blob?.size) setScreenAssetURLs((old) => old[asset.id] ? old : {...old, [asset.id]: URL.createObjectURL(blob)});
+      });
+    }
+    return () => {alive = false;};
+  }, [settings.screenAssets, screenAssetURLs]);
+  useEffect(() => {
+    const element = video.current;
+    if (!element || !source) return;
+    const manifest = settings.screenAssets;
+    if (!manifest?.length) {
+      disconnectScreenMedia(element);
+      if (element.getAttribute('src') !== source) {element.src = source; element.load();}
+      return;
+    }
+    const assets = manifest.map((asset) => ({...asset, url: asset.key === 'screen' ? source : screenAssetURLs[asset.id]}));
+    if (assets.some((asset) => !asset.url)) return;
+    configureScreenMedia(element, assets);
+    const total = Math.max(...assets.map((asset) => asset.start + asset.duration));
+    setDuration(total);
+    localStorage.setItem('frame-duration', String(total));
+    if (pendingSourceSeek.current !== null) {
+      seekMediaTime(element, pendingSourceSeek.current);
+      pendingSourceSeek.current = null;
+    }
+  }, [source, settings.screenAssets, screenAssetURLs]);
+
+  const undoPending = useRef(false);
+  useEffect(() => { resetEditHistory(); }, [source, resetEditHistory]);
+  function redoLastEdit() {
+    if(!canRedo||recording||exporting||joining)return;
+    video.current?.pause();camera.current?.pause();soundPlayer.current.stop();setPlaying(false);setCompletedExport(null);redoSettings();
+  }
+  function undoLastEdit() {
+    if (!canUndo || recording || exporting || joining) return;
+    video.current?.pause(); camera.current?.pause(); soundPlayer.current.stop();
+    setPlaying(false);
+    setCompletedExport(null);
+    undoPending.current = true;
+    undoSettings();
+  }
+  useEffect(() => {
+    if (!undoPending.current) return;
+    undoPending.current = false;
+    setSelectedSegment(0);
+    setSelectedCameraClip(null);
+    seek(0);
+    announce('Last edit undone.');
+  }, [settings]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input,textarea,select,[contenteditable="true"]')) return;
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        undoLastEdit();
+      }
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  });
+
   const [camSource, setCamSource] = useState('');
   const [duration, setDuration] = useState(0);
   const [time, setTime] = useState(0);
@@ -1273,6 +1416,7 @@ export default function App() {
     importMode = useRef<'edit' | 'animate'>('edit');
   const designInput = useRef<HTMLInputElement>(null);
   const [chosenTemplate, setChosenTemplate] = useState<TemplateId>('cinematic');
+  useEffect(()=>{const choose=(event:MouseEvent)=>{const target=event.target;if(target instanceof HTMLInputElement&&target.type==='file')document.documentElement.dataset.fileAccept=target.accept;};document.addEventListener('click',choose,true);return()=>document.removeEventListener('click',choose,true);},[]);
   const musicInput = useRef<HTMLInputElement>(null),
     musicBuffer = useRef<AudioBuffer | undefined>(undefined),
     soundPlayer = useRef(new DemoAudioPlayer()),
@@ -1345,7 +1489,7 @@ export default function App() {
     } else {
       recordSegment.current = 0;
       setTime(0);
-      if (video.current) video.current.currentTime = recordingSegments[0].start;
+      if (video.current) seekMediaTime(video.current, recordingSegments[0].start);
       if (camera.current) camera.current.currentTime = recordingSegments[0].start;
     }
   }
@@ -1354,8 +1498,8 @@ export default function App() {
       <>
         <button
           className="nav"
-          title="Home"
-          aria-label="Home"
+          title="File Studio"
+          aria-label="File Studio"
           disabled={exporting || websiteExport?.busy || recording || generating || importingWebsite}
           onClick={() => {
             video.current?.pause();
@@ -1363,10 +1507,11 @@ export default function App() {
             soundPlayer.current.stop();
             demoPlaying.current = false;
             setPlaying(false);
-            setHome(true);
+            setMediaWorkspace(true);
+            setHome(false);
           }}
         >
-          <Home size={18} /> Home
+          <Film size={18} /> File Studio
         </button>
         <button
           className={`nav ${panel === 'edit' ? 'active' : ''}`}
@@ -1378,16 +1523,7 @@ export default function App() {
         >
           <Monitor size={18} /> Screen Demo Studio
         </button>
-        <button
-          className={`nav ${panel === 'website' ? 'active' : ''}`}
-          title="Website Link to Video"
-          aria-label="Website Link to Video"
-          aria-current={panel === 'website' ? 'page' : undefined}
-          disabled={exporting || websiteExport?.busy || generating || importingWebsite}
-          onClick={() => navigateStudio('website')}
-        >
-          <ArrowUpRight size={18} /> Website Link to Video
-        </button>
+
       </>
     );
   }
@@ -1431,7 +1567,22 @@ export default function App() {
     );
   }
 
+  function selectedClipEffectSettings() { return clipEffectSettings(settings, (timelineSelection === 'zoom' ? zoomEditorClip : null) || activeSegments[selectedSegment]?.id); }
+  function setClipSettings(action: (old: Settings) => Settings) {
+    const id = (timelineSelection === 'zoom' ? zoomEditorClip : null) || activeSegments[selectedSegment]?.id;
+    if (!id || recreated) return setSettings(action);
+    setSettings(old => {
+      const effective = clipEffectSettings(old, id);
+      const next = action(effective);
+      return editClipEffects({...next, ...effectsSnapshot(old)}, activeSegments, id, next);
+    });
+    cameraView.current = null;
+  }
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
+    if (clipEffectKeys.includes(key as typeof clipEffectKeys[number]) && !recreated) {
+      setClipSettings(old => ({...old, [key]: value}));
+      return;
+    }
     setSettings((s) => ({
       ...s,
       [key]: value,
@@ -1486,20 +1637,26 @@ export default function App() {
     settings.musicName,
     musicReady,
   ]);
-  async function createCaptions() {
+  async function createCaptions(outputOverride?: 'original'|'english') {
     if (!captionAudio?.url || captionBusy) return;
     const revision = captionAudioRevision.current;
     setCaptionBusy(true);
     setCaptionProgress(0);
     try {
+      let detectedLanguage = '';
+      let originalCaptions: import('./captions').Caption[] = [];
+      const captionOutput = outputOverride || settings.captionOutputLanguage || 'original';
       const captions = await generateCaptions(captionAudio.url, setCaptionProgress, {
+        output: captionOutput, language:settings.captionSourceLanguage || 'auto',
+        onDetectedLanguage: language => { detectedLanguage = language; },
+        onOriginalCaptions: captions => { originalCaptions = captions; },
         start: captionAudio.start,
         end: captionAudio.end,
         offset: captionAudio.offset,
       });
       if (captionAudioRevision.current !== revision)
         throw Error('The audio source changed. Generate captions again.');
-      setSettings((s) => ({ ...s, captions, caption: '', captionsEnabled: true }));
+      setSettings((s) => ({ ...s, captions, caption: '', captionsEnabled: true, captionOutputLanguage:captionOutput, captionDetectedLanguage: detectedLanguage, captionVariants: {...s.captionVariants, original:captionOutput === 'english' && s.captionVariants?.original?.length ? s.captionVariants.original : originalCaptions, [captionOutput]:captions} }));
       announce('Speech captions ready. Edit any line and choose a style.');
     } catch (error) {
       announce((error as Error).message);
@@ -1558,7 +1715,7 @@ export default function App() {
     video.current?.pause();
     setPlaying(false);
     update('captionsEnabled', true);
-    captionDialog.current?.showModal();
+    setTimelineSelection('caption');
   }
   function captionControls() {
     const hasCaptions = Boolean(settings.captions?.length);
@@ -1603,6 +1760,13 @@ export default function App() {
                 ))}
               </select>
             </label>
+            <CaptionLanguageChoice sourceLanguage={settings.captionSourceLanguage || 'auto'} onSourceLanguageChange={value=>setSettings(old=>({...old,captionSourceLanguage:value,captionVariants:{},captionDetectedLanguage:undefined}))} value={settings.captionOutputLanguage || 'original'} language={settings.captionDetectedLanguage} disabled={captionBusy} onChange={value => {
+              const current=settings.captionOutputLanguage || 'original';
+              const variants={...settings.captionVariants,[current]:settings.captions || []};
+              setSettings(old=>({...old,captionVariants:variants}));
+              if(value==='english'&&!variants.english?.length&&settings.captions?.length){void createCaptions('english');return;}
+              setSettings(old=>({...old,captionOutputLanguage:value,captionVariants:variants,captions:variants[value]||[]}));
+            }} />
             <button
               className="button lime caption-generate"
               disabled={
@@ -1643,6 +1807,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+            <CaptionDesignControls style={settings.captionStyle || 'classic'} appearance={settings.captionAppearance || {}} showStyles={false} disabled={captionBusy || exporting} onStyle={style=>update('captionStyle',style)} onChange={value=>update('captionAppearance',value)} />
             <div className="caption-segment-list" aria-label="Caption segments">
               {settings.captions!.map((caption, index) => (
                 <div
@@ -1700,6 +1865,9 @@ export default function App() {
               className="button quiet"
               onClick={() => {
                 update('captions', []);
+      update('captionVariants', undefined);
+      update('captionDetectedLanguage', undefined);
+      update('captionOutputLanguage', 'original');
                 setCaptionSelection(null);
               }}
             >
@@ -1791,6 +1959,8 @@ export default function App() {
       setSettings((old) => ({
         ...old,
         primaryMedia: undefined,
+        screenAssets: undefined,
+        libraryRecordingID: undefined,
         cameraTakes: [],
         cameraClipsEdited: false,
         cameraDuration: undefined,
@@ -1816,8 +1986,10 @@ export default function App() {
         ...(old.titleAuto ? { title: 'Screen recording' } : {}),
       }));
       announce('Recording cleared. Ready for a new recording.');
+      return true;
     } catch {
       announce('Could not clear the saved recording. Please try again.');
+      return false;
     }
   }
   async function receive(blob: Blob, key: string) {
@@ -1827,6 +1999,9 @@ export default function App() {
       setSettings((old) => ({
         ...old,
         primaryMedia: cameraOnly ? 'camera' : 'screen',
+        screenAssets: undefined,
+        libraryRecordingID: undefined,
+        displayLayouts: undefined, captionLayout: undefined,
         screenVisible: true,
         zoomTrackEnabled: true,
         clipZooms: undefined,
@@ -1856,6 +2031,9 @@ export default function App() {
       update('focusPoints', []);
       update('scenes', []);
       update('captions', []);
+      update('captionVariants', undefined);
+      update('captionDetectedLanguage', undefined);
+      update('captionOutputLanguage', 'original');
       update('cursorSeed', undefined);
       update('replaceCursor', false);
       cursorReplacer.current = null;
@@ -1884,6 +2062,94 @@ export default function App() {
       return false;
     }
   }
+  useEffect(() => {
+    const importNative = async (event: Event) => {
+      const detail = (event as CustomEvent<{ url: string; name: string; cameraURL?: string; cameraLead?: number; cameraDuration?: number; cursorURL?: string; append?: boolean; recordingID?: string; title?: string }>).detail;
+      if (!isNativeMac() || !detail || !detail.url.startsWith(`${location.origin}/recordings/`)) return;
+      try {
+        announce('Loading the saved MP4 into the editor…');
+        const response = await fetch(detail.url);
+        if (!response.ok) throw new Error('Could not read the saved recording.');
+        const blob = await response.blob();
+        if ((detail.append ?? appendCapture.current) && source) {
+          const offset = settings.screenAssets ? Math.max(...settings.screenAssets.map((asset) => asset.start + asset.duration)) : duration;
+          const session: NonNullable<typeof liveCapture.current> = { cameraJobs: [], cameraClips: [] };
+          if (detail.cameraURL?.startsWith(`${location.origin}/recordings/`)) {
+            const cameraResponse = await fetch(detail.cameraURL);
+            if (!cameraResponse.ok) throw new Error('Could not read the next clip’s camera track.');
+            const cameraBlob = await cameraResponse.blob();
+            const id = `native-camera-${crypto.randomUUID()}`;
+            await storeAsset(id, cameraBlob);
+            setCameraTakeURLs((old) => ({ ...old, [id]: URL.createObjectURL(cameraBlob) }));
+            const lead = Math.max(0, detail.cameraLead || 0);
+            const end = Math.max(0, (detail.cameraDuration || 0) - lead);
+            session.cameraClips.push({ id, assetId: id, start: 0, end, sourceStart: lead, sourceEnd: lead + end });
+          }
+          const appended = await appendScreenBlob(blob, undefined, session);
+          if (appended && detail.cursorURL?.startsWith(`${location.origin}/recordings/`)) {
+            try {
+              const response = await fetch(detail.cursorURL);
+              const data: unknown = response.ok ? await response.json() : [];
+              if (Array.isArray(data)) {
+                const added = data.filter((p): p is CursorSample => p && Number.isFinite(p.time) && p.time >= 0 &&
+                  Number.isFinite(p.x) && p.x >= 0 && p.x <= 1 && Number.isFinite(p.y) && p.y >= 0 && p.y <= 1 && typeof p.click === 'boolean');
+                setSettings((old) => ({ ...old,
+                  cursorTelemetry: [...(old.cursorTelemetry || []), ...added.map((p) => ({ ...p, time: p.time + offset }))],
+                  focusPoints: [...(old.focusPoints || []), ...cursorFocusPoints(added, added.at(-1)?.time || 0).map((p) => ({ ...p, time: p.time + offset }))],
+                }));
+              }
+            } catch { announce('Clip appended; its cursor-follow data could not be loaded.'); }
+          }
+          navigateStudio('edit');
+          return;
+        }
+        appendCapture.current = false;
+        const stored = await receive(new File([blob], detail.name, { type: 'video/mp4' }), 'screen');
+        setSettings((old) => ({...old, libraryRecordingID: detail.recordingID, title: detail.title || detail.name.replace(/\.[^.]+$/, ''), titleAuto: false}));
+        if (detail.cameraURL?.startsWith(`${location.origin}/recordings/`)) {
+          const cameraResponse = await fetch(detail.cameraURL);
+          if (!cameraResponse.ok) throw new Error('The screen recording loaded, but its camera track could not be read.');
+          await receive(await cameraResponse.blob(), 'camera');
+          const lead = Math.max(0, detail.cameraLead || 0);
+          const cameraDuration = Math.max(lead, detail.cameraDuration || 0);
+          setSettings((old) => ({ ...old, camera: true, cameraDuration, cameraClipsEdited: true,
+            cameraTakes: [{ id: 'native-camera', assetId: 'original', start: 0, end: cameraDuration - lead, sourceStart: lead, sourceEnd: cameraDuration }],
+          }));
+        } else {
+          setCamSource('');
+          await storeAsset('camera', new Blob());
+          setSettings((old) => ({ ...old, camera: false, cameraTakes: [], cameraClipsEdited: false }));
+        }
+        let cursorSamples: CursorSample[] = [];
+        if (detail.cursorURL?.startsWith(`${location.origin}/recordings/`)) {
+          try {
+            const result = await fetch(detail.cursorURL);
+            if (result.ok) {
+              const data: unknown = await result.json();
+              if (Array.isArray(data)) cursorSamples = data.filter((p): p is CursorSample =>
+                p && Number.isFinite(p.time) && p.time >= 0 && Number.isFinite(p.x) && p.x >= 0 && p.x <= 1 &&
+                Number.isFinite(p.y) && p.y >= 0 && p.y <= 1 && typeof p.click === 'boolean');
+            }
+          } catch { /* Original video remains usable without tracking metadata. */ }
+        }
+        const trackedLength = cursorSamples.at(-1)?.time || 0;
+        setSettings((old) => ({ ...old, capturedCursorHidden: true, replaceCursor: false,
+          cursorTelemetry: cursorSamples, pointerMotion: cursorSamples.length ? 'recorded' : 'manual',
+          cursorStyle: cursorSamples.length ? 'auto' : 'none',
+          focusPoints: cursorFocusPoints(cursorSamples, trackedLength),
+          zoom: cursorSamples.length ? 1.7 : 1, zoomSource: 'cursor', autoZoom: cursorSamples.length > 0,
+        }));
+        navigateStudio('edit');
+        announce(stored
+          ? 'Recording loaded from your app library. Export when you’re ready to save a copy elsewhere.'
+          : 'Recording loaded, but the editor cache is full. Your original MP4 is safe in your app library.');
+      } catch (error) {
+        announce(`Could not load recording: ${(error as Error).message}. Your original file remains in your app library.`);
+      }
+    };
+    window.addEventListener('demotake-native-import', importNative);
+    return () => window.removeEventListener('demotake-native-import', importNative);
+  });
   function recorder(stream: MediaStream, key: string) {
     const shouldAppend = appendCapture.current && Boolean(source);
     const captureSession = liveCapture.current;
@@ -1971,9 +2237,14 @@ export default function App() {
     setRecording(false);
     announce('Recording stopped. Saving your footage…');
   }
-  async function startRecording(deferred = false) {
+  async function startRecording(deferred = false, fresh = false) {
+    if (source && !fresh) appendCapture.current = true;
+    if (showNativeRecorder()) {
+      announce('Use Record screen in the Mac recorder toolbar. Recordings save automatically in your app library.');
+      return;
+    }
     if (mobileView) return;
-    if (source) appendCapture.current = true;
+    if (source && !fresh) appendCapture.current = true;
     try {
       setFloatingSaveStatus('idle');
       if (!floatingController || floatingController.closed) {
@@ -2239,7 +2510,7 @@ export default function App() {
   const recordingSegments = settings.recordingSegments || [
     { id: 'recording', start: settings.trimStart, end: Math.max(settings.trimStart + 0.1, end) },
   ];
-  const activeSegments = recreated ? websiteSegments : recordingSegments;
+  const activeSegments: DemoSegment[] = recreated ? websiteSegments : recordingSegments;
   const websiteDuration = durationOf(websiteSegments),
     displayDuration = recreated ? websiteDuration : durationOf(recordingSegments);
   const timelineDuration = Math.max(displayDuration, 1);
@@ -2298,7 +2569,7 @@ export default function App() {
     const target = resolve(index);
     if (arrangeDisplays || index <= 0) return target;
     const segment = activeSegments[index],
-      local = (video.current?.currentTime ?? segment.start) - segment.start;
+      local = (mediaTime(video.current) ?? segment.start) - segment.start;
     const n = Math.max(0, Math.min(1, local / Math.min(0.7, (segment.end - segment.start) / 2))),
       ease = n * n * (3 - 2 * n),
       previous = resolve(index - 1);
@@ -2317,71 +2588,45 @@ export default function App() {
     }
     return result;
   }
+  function cameraDimensions() {
+    const l = displayLayout();
+    const ratio = settings.cameraShape === 'circle' ? 1
+      : { '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9, '9:16': 9 / 16 }[settings.cameraRatio || '1:1'];
+    const width = Math.min(l.cameraSize ?? settings.cameraSize ?? 170, portrait ? 660 : 1000, (portrait ? 1100 : 620) * ratio);
+    return { width, height: width / ratio };
+  }
   function mobileMetrics() {
-    const l = displayLayout(),
-      scale = (696 / 1150) * l.screenScale;
-    return {
-      scale,
-      x: (l.screenX / 100) * 720 - 640 * scale,
-      y: (l.screenY / 100) * 1280 - 360 * scale,
-    };
+    const l = displayLayout(), size = cameraDimensions();
+    const outside = settings.camera && Boolean(camSource || settings.cameraTakes?.length) && (settings.mobileCameraLayout || 'outside') === 'outside';
+    const reserve = outside ? size.height + 48 : 0;
+    const scale = Math.min(696 / 1150, (1280 - captionBand() - reserve - 48) / 620) * l.screenScale;
+    const top = outside && (settings.mobileCameraPosition || 'bottom-center').startsWith('top') ? reserve : 0;
+    const centerY = top + (1280 - captionBand() - reserve) / 2 + (l.screenY - 50) * 12.8;
+    return {scale, x: (l.screenX / 100) * 720 - 640 * scale, y: centerY - 360 * scale};
   }
   function cameraDisplayRect() {
-    const l = displayLayout(),
-      p = settings.cameraPosition || 'bottom-right';
-    const ratio =
-      settings.cameraShape === 'circle'
-        ? 1
-        : { '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9, '9:16': 9 / 16 }[settings.cameraRatio || '1:1'];
-    const width = Math.min(
-        l.cameraSize ?? settings.cameraSize ?? 170,
-        portrait ? 660 : 1000,
-        (portrait ? 1100 : 620) * ratio,
-      ),
-      height = width / ratio;
-    const outside =
-      (settings.mobileCameraLayout || (portrait ? 'outside' : 'overlay')) === 'outside';
-    const pos = outside ? settings.mobileCameraPosition || 'bottom-center' : p;
-    const x =
-      !portrait && outside
-        ? pos.endsWith('left')
-          ? 36
-          : previewWidth - 36 - width
-        : l.cameraX !== undefined
-          ? (l.cameraX / 100) * previewWidth - width / 2
-          : pos.endsWith('center')
-            ? (previewWidth - width) / 2
-            : pos.endsWith('left')
-              ? portrait
-                ? 28
-                : 85
-              : previewWidth - (portrait ? 28 : 85) - width;
-    const y =
-      !portrait && outside
-        ? pos.startsWith('top')
-          ? 36
-          : pos.startsWith('bottom')
-            ? previewHeight - 36 - height
-            : (previewHeight - height) / 2
-        : l.cameraY !== undefined
-          ? (l.cameraY / 100) * previewHeight - height / 2
-          : portrait
-            ? outside
-              ? pos.startsWith('top')
-                ? 640 - 310 * mobileScale - height - 36
-                : 640 + 310 * mobileScale + 36
-              : pos.startsWith('top')
-                ? 475
-                : 805 - height
-            : pos.startsWith('top')
-              ? 70
-              : 650 - height;
-    return {
-      x,
-      y: Math.max(0, Math.min(y, previewHeight - captionBand() - height - 12)),
-      width,
-      height,
+    const l = displayLayout(), size = cameraDimensions();
+    const outside = (settings.mobileCameraLayout || (portrait ? 'outside' : 'overlay')) === 'outside';
+    const position = outside ? settings.mobileCameraPosition || 'bottom-center' : settings.cameraPosition || 'bottom-right';
+    const m = portrait ? mobileMetrics() : null;
+    const c = portrait ? null : cameraComposition();
+    const scale = m?.scale ?? c!.scale;
+    const screen = {x: (m?.x ?? c!.tx) + 65 * scale, y: (m?.y ?? c!.ty) + 50 * scale, width: 1150 * scale, height: 620 * scale};
+    const rect = placeCamera(screen, {width: previewWidth, height: previewHeight - captionBand()}, size, position, outside, portrait);
+    const placed = {...rect,
+      x: l.cameraX === undefined ? rect.x : Math.max(0, Math.min(previewWidth - rect.width, l.cameraX / 100 * previewWidth - rect.width / 2)),
+      y: l.cameraY === undefined ? rect.y : Math.max(0, Math.min(previewHeight - captionBand() - rect.height, l.cameraY / 100 * previewHeight - rect.height / 2)),
     };
+    const solo = settings.primaryMedia === 'camera' ? 0 : cameraSoloMix(
+      recordingSegments, mediaTime(video.current), settings.screenVisible !== false, recordSegment.current,
+    );
+    return soloCameraRect(placed, {width: previewWidth, height: previewHeight - captionBand()}, solo);
+  }
+  function setCameraPlacement(layout: 'outside' | 'overlay', position?: NonNullable<Settings['cameraPosition']>) {
+    setSettings((old) => ({...old, mobileCameraLayout: layout,
+      ...(position ? layout === 'outside' ? {mobileCameraPosition: position} : {cameraPosition: position} : {}),
+      displayLayouts: {...old.displayLayouts, [layoutKey()]: {...displayLayout(), cameraX: undefined, cameraY: undefined}},
+    }));
   }
   function dragCaption(e: React.PointerEvent<HTMLDivElement>, resize = false) {
     e.preventDefault();
@@ -2433,12 +2678,7 @@ export default function App() {
       const dx = ((event.clientX - origin.x) / bounds.width) * previewWidth,
         dy = ((event.clientY - origin.y) / bounds.height) * previewHeight;
       setSettings((old) => {
-        const layout = {
-          ...initial,
-          cameraX: initial.cameraX ?? ((cam.x + cam.width / 2) / previewWidth) * 100,
-          cameraY: initial.cameraY ?? ((cam.y + cam.height / 2) / previewHeight) * 100,
-          cameraSize: initial.cameraSize ?? cam.width,
-        };
+        const layout = { ...initial };
         let cameraSize = old.cameraSize;
         if (target === 'screen') {
           if (resize)
@@ -2501,9 +2741,7 @@ export default function App() {
   const portrait = settings.outputFormat === '9:16';
   const previewWidth = portrait ? 720 : 1280,
     previewHeight = portrait ? 1280 : 720;
-  const mobileScale = (696 / 1150) * displayLayout().screenScale,
-    mobileX = (displayLayout().screenX / 100) * 720 - 640 * mobileScale,
-    mobileY = (displayLayout().screenY / 100) * 1280 - 360 * mobileScale;
+  const {scale: mobileScale, x: mobileX, y: mobileY} = mobileMetrics();
   const outputFrame = useRef<HTMLCanvasElement | null>(null);
   function cameraFocusDrag(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -2533,14 +2771,9 @@ export default function App() {
     const take = activeCameraTake(sourceTime),
       start = take?.start || 0,
       end = take ? take.end : 0;
-    if (!end || sourceTime < start || sourceTime >= end) return 0;
-    const ease = (n: number) => {
-      const t = Math.max(0, Math.min(1, n));
-      return t * t * (3 - 2 * t);
-    };
-    const ramp = Math.min(0.65, (end - start) / 3);
-    return ease((sourceTime - start) / ramp) * ease((end - sourceTime) / ramp);
+    return cameraFade(sourceTime, start, end, take?.hidden);
   }
+
   function animateCameraFrame(
     ctx: CanvasRenderingContext2D,
     t: number,
@@ -2550,7 +2783,7 @@ export default function App() {
     height: number,
   ) {
     const visibility = cameraVisibility(t);
-    ctx.globalAlpha = visibility;
+    ctx.globalAlpha *= visibility;
     const scale = 0.94 + 0.06 * visibility;
     ctx.translate(x + width / 2, y + height / 2 + (1 - visibility) * 22);
     ctx.scale(scale, scale);
@@ -2567,13 +2800,7 @@ export default function App() {
   ) {
     ctx.save();
     ctx.fillStyle = settings.background;
-    for (const layer of strong
-      ? [
-          { blur: 64, y: 24, alpha: 0.34 },
-          { blur: 24, y: 10, alpha: 0.24 },
-          { blur: 6, y: 2, alpha: 0.16 },
-        ]
-      : [{ blur: 30, y: 14, alpha: 0.23 }]) {
+    for (const layer of [{ blur: strong ? 10 : 8, y: 3, alpha: 0.08 }]) {
       ctx.shadowColor = `rgba(20,30,35,${layer.alpha})`;
       ctx.shadowBlur = layer.blur;
       ctx.shadowOffsetY = layer.y;
@@ -2583,6 +2810,16 @@ export default function App() {
     }
     ctx.restore();
   }
+  const [cutoutStatus, setCutoutStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  useEffect(() => {
+    if (!settings.cameraCutout) { resetCameraCutoutFrames(); return; }
+    let cancelled = false;
+    setCutoutStatus('loading');
+    prepareCameraCutout().then(() => { if (!cancelled) setCutoutStatus('ready'); })
+      .catch(() => { if (!cancelled) { setCutoutStatus('error'); announce('Camera cutout could not start. Turn it off and try again.'); } });
+    return () => { cancelled = true; };
+  }, [settings.cameraCutout]);
+  const mobileZoomView = useRef({zoom:1,x:50,y:50});
   function composeOutput(
     ctx: CanvasRenderingContext2D,
     render: (target: CanvasRenderingContext2D) => void,
@@ -2594,13 +2831,11 @@ export default function App() {
     const canvas = outputFrame.current ?? (outputFrame.current = document.createElement('canvas'));
     canvas.width = 1280;
     canvas.height = 720;
+    mobileZoomView.current = {zoom:1,x:50,y:50};
     render(canvas.getContext('2d')!);
     paintBackground(ctx, 720, 1280);
-    const m = mobileMetrics(),
-      band = !recreated ? captionBand() : 0,
-      scale = Math.min(m.scale, (1280 - band) / 720),
-      y = Math.max(0, Math.min(m.y, 1280 - band - 720 * scale));
-    ctx.drawImage(canvas, m.x, y, 1280 * scale, 720 * scale);
+    const m = mobileZoomPlacement(mobileMetrics(),mobileZoomView.current.zoom,mobileZoomView.current);
+    ctx.drawImage(canvas, m.x, m.y, 1280 * m.scale, 720 * m.scale);
   }
   function previewPoint(clientX: number, clientY: number, bounds: DOMRect) {
     const x = ((clientX - bounds.left) / bounds.width) * previewWidth,
@@ -2625,19 +2860,78 @@ export default function App() {
         ctx,
         settings.captionsEnabled === false ? '' : settings.caption,
         settings.captionStyle,
+        undefined, undefined, settings.captionAppearance,
       );
     });
+  const featureDragClick = useRef(false);
+  function splitMusicClip() {
+    const list=musicClips();
+    setSettings(old=>({...old,musicClips:list.flatMap(c=>{
+      const range=featureRange('music:'+c.id,c.start,c.end);
+      if((selectedMusicClip&&c.id!==selectedMusicClip)||time<=range.start+.1||time>=range.end-.1)return [c];
+      return [{...c,id:crypto.randomUUID(),start:range.start,end:time},{...c,id:crypto.randomUUID(),start:time,end:range.end,offset:c.offset+time-c.start}];
+    })}));
+  }
+  function splitCaptionAtPlayhead() {
+    const at=mapSegments(activeSegments,time).time;
+    setSettings(old=>({...old,captions:old.captions?.flatMap(c=>at>c.start+.1 && at<c.end-.1 ? [{...c,end:at},{...c,start:at}] : [c])}));
+  }
+  function featureRange(key: string, start: number, end: number) { return settings.featureRanges?.[key] || (key.startsWith('music:') ? musicClips().find(c=>c.id===key.slice(6)) : undefined) || {start,end}; }
+  function featureTimingStyle(key: string, start: number, end: number) {
+    const range=featureRange(key,start,end), length=end-start;
+    return {position:'absolute' as const,left:`${(range.start-start)/length*100}%`,width:`${(range.end-range.start)/length*100}%`};
+  }
+  function dragFeatureTiming(event: React.PointerEvent<HTMLElement>, key:string, start:number, end:number, edge?:'start'|'end') {
+    if(exporting||recording)return;
+    event.preventDefault();event.stopPropagation();
+    const track=event.currentTarget.closest('.editor-lane-slots');if(!track)return;
+    const width=track.getBoundingClientRect().width, x=event.clientX, original=featureRange(key,start,end);
+    const move=(e:PointerEvent)=>{if(Math.abs(e.clientX-x)<3)return;featureDragClick.current=true;
+      const delta=(e.clientX-x)/width*timelineDuration;
+      let a=original.start,b=original.end;
+      if(edge==='start')a=Math.max(start,Math.min(b-.1,a+delta));
+      else if(edge==='end')b=Math.min(end,Math.max(a+.1,b+delta));
+      else {a=Math.max(start,Math.min(end-(b-a),a+delta));b=a+original.end-original.start;}
+      setSettings(old=>({...old,featureRanges:{...old.featureRanges,[key]:{start:a,end:b}}}));
+    };
+    const finish=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);setTimeout(()=>{featureDragClick.current=false;},0);};
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish);
+  }
+  function featureEdges(key:string,start:number,end:number) {return <><span className="feature-trim-edge start" onPointerDown={e=>dragFeatureTiming(e,key,start,end,'start')}/><span className="feature-trim-edge end" onPointerDown={e=>dragFeatureTiming(e,key,start,end,'end')}/></>;}
+  function dragCaptionTiming(event: React.PointerEvent<HTMLElement>, index: number, edge?: 'start'|'end') {
+    if (exporting || recording) return;
+    event.preventDefault(); event.stopPropagation();
+    const caption = settings.captions?.[index];
+    const track = event.currentTarget.closest('.editor-lane-slots');
+    if (!caption || !track) return;
+    const original = {...caption}, startX = event.clientX;
+    const pixels = track.getBoundingClientRect().width;
+    let moved = false;
+    const move = (e: PointerEvent) => {
+      const delta = (e.clientX - startX) / pixels * timelineDuration;
+      if (Math.abs(e.clientX-startX)<3 && !moved) return;
+      moved = true; featureDragClick.current = true;
+      let start = original.start, end = original.end;
+      if (edge === 'start') start = Math.max(0, Math.min(end-.1, start+delta));
+      else if (edge === 'end') end = Math.min(duration, Math.max(start+.1,end+delta));
+      else { start = Math.max(0, Math.min(duration-(end-start), start+delta)); end=start+original.end-original.start; }
+      setSettings(old=>({...old,captions:old.captions?.map((c,i)=>i===index?{...c,start,end}:c)}));
+    };
+    const finish = () => { window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',finish); window.removeEventListener('pointercancel',finish); setTimeout(()=>{featureDragClick.current=false;},0); };
+    window.addEventListener('pointermove',move); window.addEventListener('pointerup',finish); window.addEventListener('pointercancel',finish);
+  }
   function seekLane(e: React.MouseEvent<HTMLElement>, lane: string) {
     if (lane === 'zoom') setTimelineSelection('zoom');
     else if (lane === 'captions') setTimelineSelection('caption');
     else if (lane === 'music') setTimelineSelection('music');
     else if (lane === 'camera') setTimelineSelection('camera');
     else if (lane === 'video') setTimelineSelection('video');
-    if (exporting || recording || cameraTake || cameraMoveClick.current) return;
+    else if (lane === 'cursor') { setTimelineSelection('cursor'); setCursorExpanded(true); }
+    if (exporting || recording || cameraTake || cameraMoveClick.current || featureDragClick.current) return;
     const target = e.target as HTMLElement;
     if (
       target.closest(
-        '.timeline-track-name,.clip-remove,.track-remove,.clip-edge,.camera-trim-edge,.lane-add-clip,.empty-track-actions button',
+        '.feature-trim-edge,.timeline-track-name,.clip-remove,.track-remove,.clip-edge,.camera-trim-edge,.lane-add-clip,.empty-track-actions button',
       )
     )
       return;
@@ -2649,29 +2943,17 @@ export default function App() {
     if (e.clientX < rect.left || e.clientX > rect.right) return;
     const value = Math.max(
       0,
-      Math.min(timelineDuration, ((e.clientX - rect.left) / rect.width) * timelineDuration),
+      Math.min(timelineDuration, ((e.clientX - rect.left) / rect.width) * timelineDuration / (lane === 'timeline' ? (parseFloat(getComputedStyle(track.closest('.timeline-zoom-content') || track).getPropertyValue('--timeline-clip-scale')) || 1) : 1)),
     );
+    if (lane !== 'video' && lane !== 'timeline' && !target.closest('button,.feature-trim-edge,.camera-linked-clip')) {
+      setLaneAddMenu({lane,time:value,x:e.clientX,y:e.clientY});
+    }
     setLaneTimes((old) => ({ ...old, [lane]: value }));
     setSelectedSegment(mapSegments(activeSegments, value).index);
     seek(value);
   }
-  function laneMarkers(lane: string) {
-    return (
-      <>
-        <span
-          className="lane-shared-marker"
-          aria-hidden="true"
-          style={{ left: `${(time / timelineDuration) * 100}%` }}
-        />
-        {laneTimes[lane] !== undefined && (
-          <span
-            className="lane-local-marker"
-            title={`${lane} position ${clock(laneTimes[lane])}`}
-            style={{ left: `${Math.min(100, (laneTimes[lane] / timelineDuration) * 100)}%` }}
-          />
-        )}
-      </>
-    );
+  function laneMarkers(_lane: string) {
+    return <span className="lane-shared-marker" aria-hidden="true" style={{left:`${(time / timelineDuration) * 100}%`}} />;
   }
   function seek(value: number) {
     const target = Math.max(0, Math.min(displayDuration, value));
@@ -2682,7 +2964,7 @@ export default function App() {
     } else if (video.current) {
       const mapped = mapSegments(recordingSegments, target);
       recordSegment.current = mapped.index;
-      video.current.currentTime = mapped.time;
+      seekMediaTime(video.current, mapped.time);
       if (camera.current) camera.current.currentTime = mapped.time;
       setTime(target);
     }
@@ -2691,16 +2973,37 @@ export default function App() {
   }
   async function soundtrack() {
     const boundaries = activeSegments.map((_, i) => durationOf(activeSegments.slice(0, i)));
-    const buffer = await makeSoundtrack(
-      displayDuration,
-      boundaries,
-      musicBuffer.current,
-      settings.demoAudio || defaultAudio,
-    );
+    const audio=settings.demoAudio||defaultAudio;
+    const buffer = await makeSoundtrack(displayDuration,boundaries,undefined,{...audio,musicTrack:'none'});
+    for(const clip of musicClips()) {
+      const range=settings.featureRanges?.['music:'+clip.id]||clip;
+      let uploaded:AudioBuffer|undefined;
+      if(clip.asset) { const blob=await loadAsset(clip.asset);if(blob?.size){const context=new AudioContext();try{uploaded=await context.decodeAudioData(await blob.arrayBuffer());}finally{await context.close();}} }
+      const piece=await makeSoundtrack(Math.max(.1,range.end-clip.start+clip.offset),[],uploaded,{...audio,musicTrack:clip.track,musicVolume:clip.volume,effects:false});
+      for(let ch=0;ch<buffer.numberOfChannels;ch++) {
+        const target=buffer.getChannelData(ch),source=piece.getChannelData(Math.min(ch,piece.numberOfChannels-1));
+        const first=Math.floor(range.start*buffer.sampleRate),offset=Math.floor((clip.offset+Math.max(0,range.start-clip.start))*buffer.sampleRate);
+        for(let i=0;i<Math.floor((range.end-range.start)*buffer.sampleRate)&&first+i<target.length;i++)target[first+i]+=source[offset+i]||0;
+      }
+    }
     previewSound.current = buffer;
     return buffer;
   }
+  const [musicWaveform,setMusicWaveform]=useState<AudioBuffer>();
+  const selectedBuiltInMusic=(settings.demoAudio||defaultAudio).musicTrack;
+  useEffect(()=>{let active=true;if(musicReady){setMusicWaveform(musicBuffer.current);return;}setMusicWaveform(undefined);if(selectedBuiltInMusic&&selectedBuiltInMusic!=='none')void makeSoundtrack(12,[],undefined,{...defaultAudio,musicTrack:selectedBuiltInMusic,musicVolume:1,effects:false}).then(buffer=>{if(active)setMusicWaveform(buffer);});return()=>{active=false;};},[selectedBuiltInMusic,musicReady]);
+  const currentMusicPlayback=useRef({playing,time});
+  currentMusicPlayback.current={playing,time};
+  useEffect(()=>{
+    previewSound.current=undefined;
+    if(!currentMusicPlayback.current.playing)return;
+    let cancelled=false;
+    const timer=setTimeout(()=>{void soundtrack().then(buffer=>{if(!cancelled&&currentMusicPlayback.current.playing)void soundPlayer.current.play(buffer,currentMusicPlayback.current.time).catch(error=>announce(error.message));}).catch(error=>{if(!cancelled)announce(error.message);});},180);
+    return()=>{cancelled=true;clearTimeout(timer);};
+  },[settings.demoAudio,musicReady,settings.musicName,settings.featureRanges,settings.musicClips]);
+  const playbackStarting = useRef(false);
   async function togglePlay() {
+    if (playbackStarting.current) return;
     if (playing) {
       soundPlayer.current.stop();
       if (recreated) demoPlaying.current = false;
@@ -2712,6 +3015,7 @@ export default function App() {
       return;
     }
     if (time >= displayDuration - 0.01) seek(0);
+    playbackStarting.current = true;
     try {
       const buffer = await soundtrack();
       await soundPlayer.current.play(buffer, time >= displayDuration - 0.01 ? 0 : time);
@@ -2721,8 +3025,8 @@ export default function App() {
         if (!v) return;
         const mapped = mapSegments(recordingSegments, time >= displayDuration - 0.01 ? 0 : time);
         recordSegment.current = mapped.index;
-        if (Math.abs(v.currentTime - mapped.time) > 0.15) {
-          v.currentTime = mapped.time;
+        if (Math.abs(mediaTime(v) - mapped.time) > 0.15) {
+          seekMediaTime(v, mapped.time);
           if (camera.current) camera.current.currentTime = mapped.time;
         }
         await v.play();
@@ -2730,7 +3034,10 @@ export default function App() {
       }
       setPlaying(true);
     } catch (e) {
+      soundPlayer.current.stop();
       announce((e as Error).message);
+    } finally {
+      playbackStarting.current = false;
     }
   }
   function captionBand() {
@@ -2749,15 +3056,15 @@ export default function App() {
         settings.camera &&
         Boolean(camSource || settings.cameraTakes?.length) &&
         settings.mobileCameraLayout === 'outside';
-    const cam = outside ? cameraDisplayRect() : null;
+    const cam = outside ? cameraDimensions() : null;
     const reserve = cam ? cam.width + 72 : 0;
     const scale = portrait
       ? 1
       : outside
-        ? Math.min(l.screenScale, (1280 - reserve - 48) / 1280)
+        ? l.screenScale * (1280 - reserve - 48) / 1280
         : l.screenScale;
     const left = (settings.mobileCameraPosition || 'bottom-center').endsWith('left');
-    const fittedScale = portrait ? 1 : Math.min(scale, (720 - captionBand()) / 720);
+    const fittedScale = portrait ? 1 : scale;
     return {
       beside: Boolean(outside),
       width: (620 * 9) / 16,
@@ -2765,7 +3072,7 @@ export default function App() {
       tx: portrait
         ? 0
         : outside
-          ? (left ? reserve : 0) + (1280 - reserve - 1280 * fittedScale) / 2
+          ? (left ? reserve : 0) + (1280 - reserve - 1280 * fittedScale) / 2 + (l.screenX - 50) * 12.8
           : (l.screenX / 100) * 1280 - 640 * fittedScale,
       ty: portrait
         ? 0
@@ -2790,7 +3097,7 @@ export default function App() {
     camera.current?.pause();
     soundPlayer.current.stop();
     setPlaying(false);
-    const currentTime = video.current?.currentTime ?? segment.start;
+    const currentTime = mediaTime(video.current) ?? segment.start;
     const startTime =
       pointerMode === 'record' || pointerMode === 'live'
         ? segment.start
@@ -2810,7 +3117,7 @@ export default function App() {
     });
     let points = [point(e, pointerMode === 'place' ? segment.start : startTime)];
     const persist = () =>
-      setSettings((old) => ({
+      setClipSettings((old) => ({
         ...old,
         replaceCursor: false,
         zoomFollowsPath: true,
@@ -2823,7 +3130,7 @@ export default function App() {
       const timestamp = Math.min(
         segment.end,
         pointerMode === 'live'
-          ? (video.current?.currentTime ?? startTime)
+          ? (mediaTime(video.current) ?? startTime)
           : startTime + (performance.now() - started) / 1000,
       );
       if (pointerMode === 'place') points = [point(event, segment.start)];
@@ -2888,7 +3195,7 @@ export default function App() {
         };
         const tick = () => {
           move(last as PointerEvent);
-          if (v.currentTime >= segment.end - 0.04 || v.ended) {
+          if (mediaTime(v) >= segment.end - 0.04 || v.ended) {
             cleanup();
             finish();
             return;
@@ -2970,6 +3277,30 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
     const rect = e.currentTarget.closest('.segment-track')!.getBoundingClientRect();
+    if (!recreated && settings.primaryMedia !== 'camera') {
+      const original = activeSegments[index], range = screenRange(original), origin = e.clientX;
+      const list = activeSegments.map((segment) => ({...segment}));
+      const secondsPerPixel = timelineDuration / Math.max(1, rect.width);
+      setSelectedSegment(index);
+      video.current?.pause(); camera.current?.pause(); soundPlayer.current.stop(); setPlaying(false);
+      const move = (event: PointerEvent) => {
+        event.preventDefault();
+        const value = range[edge] + (event.clientX - origin) * secondsPerPixel;
+        const trimmed = trimScreenEdge(original, edge, value);
+        update('recordingSegments', list.map((segment, i) => i === index ? trimmed : segment));
+        setCompletedExport(null);
+      };
+      const finish = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', finish);
+        window.removeEventListener('pointercancel', finish);
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      window.addEventListener('pointermove', move, {passive: false});
+      window.addEventListener('pointerup', finish, {once: true});
+      window.addEventListener('pointercancel', finish, {once: true});
+      return;
+    }
     const list = activeSegments.map((segment) => ({ ...segment }));
     const original = list[index][edge],
       scale = timelineDuration / Math.max(1, rect.width),
@@ -3013,7 +3344,7 @@ export default function App() {
       recordSegment.current = 0;
       setTime(0);
       if (!recreated) {
-        if (video.current) video.current.currentTime = latest[0].start;
+        if (video.current) seekMediaTime(video.current, latest[0].start);
         if (camera.current) camera.current.currentTime = latest[0].start;
       }
     };
@@ -3022,6 +3353,19 @@ export default function App() {
     window.addEventListener('pointercancel', finish, { once: true });
   }
   function saveSegments(list: DemoSegment[]) {
+    if (!recreated) setSettings(old => {
+      const next = {...old};
+      for (const key of ['clipEffects','clipZooms','manualPointer','clipVolumes','displayLayouts','mobileClipFraming'] as const) {
+        const values = {...(old[key] || {})} as Record<string, unknown>;
+        for (const clip of list) {
+          if (clip.id in values) continue;
+          const parent = activeSegments.find(original => (clip.id === original.id + 'a' || clip.id === original.id + 'b') && clip.start >= original.start && clip.end <= original.end);
+          if (parent && parent.id in values) values[clip.id] = structuredClone(values[parent.id]);
+        }
+        Object.assign(next, {[key]: values});
+      }
+      return next;
+    });
     soundPlayer.current.stop();
     demoPlaying.current = false;
     video.current?.pause();
@@ -3031,7 +3375,7 @@ export default function App() {
     demoTime.current = 0;
     recordSegment.current = 0;
     if (!recreated) {
-      if (video.current) video.current.currentTime = list[0].start;
+      if (video.current) seekMediaTime(video.current, list[0].start);
       if (camera.current) camera.current.currentTime = list[0].start;
     }
     setCompletedExport(null);
@@ -3047,9 +3391,9 @@ export default function App() {
     if (cameraTakeRecorder.current?.state === 'recording') {
       setTime(
         durationOf(recordingSegments.slice(0, recordSegment.current)) +
-          Math.max(0, v.currentTime - recordingSegments[recordSegment.current].start),
+          Math.max(0, mediaTime(v) - recordingSegments[recordSegment.current].start),
       );
-      if (v.ended || v.currentTime >= takeRange.current.end - 0.05) stopCameraTake();
+      if (v.ended || mediaTime(v) >= takeRange.current.end - 0.05) stopCameraTake();
       return;
     }
     if (exporting || recreated) return;
@@ -3058,21 +3402,21 @@ export default function App() {
       if (segment) {
         setTime(
           durationOf(recordingSegments.slice(0, selectedSegment)) +
-            Math.max(0, v.currentTime - segment.start),
+            Math.max(0, mediaTime(v) - segment.start),
         );
-        if (v.currentTime >= segment.end - 0.02) v.pause();
+        if (mediaTime(v) >= segment.end - 0.02) v.pause();
       }
       return;
     }
     const i = recordSegment.current,
       s = recordingSegments[i];
     if (!s) return;
-    setTime(durationOf(recordingSegments.slice(0, i)) + Math.max(0, v.currentTime - s.start));
-    if (v.currentTime >= s.end - 0.02) {
+    setTime(durationOf(recordingSegments.slice(0, i)) + Math.max(0, mediaTime(v) - s.start));
+    if (mediaTime(v) >= s.end - 0.02) {
       if (i < recordingSegments.length - 1) {
         recordSegment.current = i + 1;
-        v.currentTime = recordingSegments[i + 1].start;
-        if (camera.current) camera.current.currentTime = v.currentTime;
+        seekMediaTime(v, recordingSegments[i + 1].start);
+        if (camera.current) camera.current.currentTime = mediaTime(v);
         if (playing) void v.play();
       } else {
         v.pause();
@@ -3380,10 +3724,10 @@ export default function App() {
       soundNode.buffer = buffer;
       soundNode.connect(audioDestination);
       audioDestination.stream.getAudioTracks().forEach((track) => stream!.addTrack(track));
-      const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(
+      const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(
         (t) => MediaRecorder.isTypeSupported(t),
       );
-      if (!mime) throw new Error('WebM export is unavailable in this browser.');
+      if (!mime) throw new Error('Video export is unavailable in this browser.');
       const chunks: BlobPart[] = [];
       rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 18000000 });
       const result = new Promise<Blob>((resolve) => {
@@ -3414,7 +3758,7 @@ export default function App() {
       if (!exportAbort.current) {
         download(
           blob,
-          settings.websiteDemo?.sourceType ? 'animation-demo.webm' : 'website-demo.webm',
+          `${settings.websiteDemo?.sourceType ? 'animation-demo' : 'website-demo'}.${mime.startsWith('video/mp4') ? 'mp4' : 'webm'}`,
         );
         announce('Recreated demo rendered at 1080p. Use Download finished video to save it.');
       }
@@ -3431,6 +3775,17 @@ export default function App() {
       setExporting(false);
     }
   }
+  function drawCameraContent(ctx: CanvasRenderingContext2D, c: HTMLVideoElement, cropWidth: number, cropHeight: number, x: number, y: number, width: number, height: number) {
+    if (settings.cameraCutout) {
+      const fit = Math.min(width / c.videoWidth, height / c.videoHeight);
+      const w = c.videoWidth * fit, h = c.videoHeight * fit;
+      ctx.drawImage(cameraCutoutFrame(c, () => { setCutoutStatus('error'); announce('Camera cutout stopped. Turn it off and on to retry.'); }), x + (width - w) / 2, y + height - h, w, h);
+    } else {
+      ctx.drawImage(c, ((c.videoWidth - cropWidth) * (settings.cameraFocusX ?? 50)) / 100,
+        ((c.videoHeight - cropHeight) * (settings.cameraFocusY ?? 50)) / 100,
+        cropWidth, cropHeight, x, y, width, height);
+    }
+  }
   function drawFrame(
     output: CanvasRenderingContext2D,
     v: HTMLVideoElement,
@@ -3445,7 +3800,7 @@ export default function App() {
       settings.camera &&
       activeCamera &&
       activeCamera.readyState >= 2 &&
-      cameraVisibility(v.currentTime) > 0
+      cameraVisibility(mediaTime(v)) > 0
     ) {
       const c = activeCamera,
         shape = settings.cameraShape || 'circle',
@@ -3456,8 +3811,8 @@ export default function App() {
       const cropW = Math.min(c.videoWidth, c.videoHeight * ratio) / 1.15,
         cropH = cropW / ratio;
       output.save();
-      animateCameraFrame(output, v.currentTime, x, y, width, height);
-      frameShadow(
+      animateCameraFrame(output, mediaTime(v), x, y, width, height);
+      if (!settings.cameraCutout) frameShadow(
         output,
         x,
         y,
@@ -3472,20 +3827,10 @@ export default function App() {
         y,
         width,
         height,
-        shape === 'circle' ? width / 2 : shape === 'rounded' ? Math.min(width, height) * 0.18 : 4,
+        settings.cameraCutout ? 0 : shape === 'circle' ? width / 2 : shape === 'rounded' ? Math.min(width, height) * 0.18 : 4,
       );
       output.clip();
-      output.drawImage(
-        c,
-        ((c.videoWidth - cropW) * (settings.cameraFocusX ?? 50)) / 100,
-        ((c.videoHeight - cropH) * (settings.cameraFocusY ?? 50)) / 100,
-        cropW,
-        cropH,
-        x,
-        y,
-        width,
-        height,
-      );
+      drawCameraContent(output, c, cropW, cropH, x, y, width, height);
       output.restore();
       output.restore();
     }
@@ -3493,12 +3838,14 @@ export default function App() {
     if (settings.captionsEnabled !== false)
       renderCaption(
         output,
-        captionAt(settings.captions || [], v.currentTime) || settings.caption,
+        captionAt(settings.captions || [], mediaTime(v)) || settings.caption,
         settings.captionStyle,
         { width: previewWidth, height: previewHeight, top: previewHeight - band },
         settings.captionLayout,
+        settings.captionAppearance,
       );
   }
+  function projectEffectSettings() { return settings; }
   function renderLandscape(
     ctx: CanvasRenderingContext2D,
     v: HTMLVideoElement,
@@ -3507,6 +3854,8 @@ export default function App() {
     rendering = false,
   ) {
     if (v.seeking || v.readyState < 2) return;
+    const effectSegment = recordingSegments.find(segment => mediaTime(v) >= segment.start && mediaTime(v) < segment.end);
+    const settings = clipEffectSettings(projectEffectSettings(), effectSegment?.id);
     const w = 1280,
       h = 720;
     ctx.clearRect(0, 0, w, h);
@@ -3515,12 +3864,15 @@ export default function App() {
     const progress = Math.max(0, Math.min(1, elapsed / total));
     const pathSegment =
       recordingSegments.find(
-        (segment) => v.currentTime >= segment.start && v.currentTime < segment.end,
+        (segment) => mediaTime(v) >= segment.start && mediaTime(v) < segment.end,
       ) || recordingSegments[recordingSegments.length - 1];
     const clipZoom = timelineZoom(pathSegment?.id, settings.clipZooms, settings.zoom);
-    const zoom = clipZoom.amount;
+    const zoomRange=settings.featureRanges?.['zoom:'+pathSegment?.id];
+    const zoom = zoomRange && (mediaTime(v)<zoomRange.start || mediaTime(v)>=zoomRange.end) ? 1 : clipZoom.amount;
+    const cursorRange=settings.featureRanges?.['cursor:'+pathSegment?.id];
+    if(cursorRange && (mediaTime(v)<cursorRange.start || mediaTime(v)>=cursorRange.end)) {settings.showCursor=false;settings.cursorStyle='none';}
     const pathPosition = pathSegment
-      ? pointerAt(settings.manualPointer?.[pathSegment.id] || [], v.currentTime)
+      ? pointerAt(settings.manualPointer?.[pathSegment.id] || [], mediaTime(v))
       : null;
     const mobileFraming = settings.mobileClipFraming?.[pathSegment?.id] || 'fit';
     const followsDrawnPath = Boolean(
@@ -3532,17 +3884,16 @@ export default function App() {
       pathPosition,
     );
     const follow =
-      (!portrait || mobileFraming === 'follow') &&
-      (followsDrawnPath || Boolean(settings.autoZoom && settings.zoomSource === 'cursor'));
+      zoom > 1 && (followsDrawnPath || Boolean(settings.autoZoom && settings.zoomSource === 'cursor'));
     const focus = viewAt(
       settings.focusPoints || [],
-      v.currentTime,
+      mediaTime(v),
       follow && !followsDrawnPath,
       zoom,
       settings.focusX,
       settings.focusY,
     );
-    const baseScale = (portrait ? Math.min : Math.max)(1150 / v.videoWidth, 620 / v.videoHeight);
+    const baseScale = screenMediaScale({width: v.videoWidth, height: v.videoHeight}, {width:1150, height:620}, portrait || displayLayout().screenFit === 'contain');
     const baseWidth = v.videoWidth * baseScale,
       baseHeight = v.videoHeight * baseScale;
     if (followsDrawnPath && pathPosition) {
@@ -3552,8 +3903,8 @@ export default function App() {
       };
       const ramp = Math.min(0.7, (pathSegment.end - pathSegment.start) / 3);
       const strength =
-        ease((v.currentTime - pathSegment.start) / ramp) *
-        ease((pathSegment.end - v.currentTime) / ramp);
+        ease((mediaTime(v) - pathSegment.start) / ramp) *
+        ease((pathSegment.end - mediaTime(v)) / ramp);
       focus.x = ((pathPosition.x - 65 - (1150 - baseWidth) / 2) / baseWidth) * 100;
       focus.y = ((pathPosition.y - 50 - (620 - baseHeight) / 2) / baseHeight) * 100;
       focus.zoom = 1 + (zoom - 1) * strength;
@@ -3585,14 +3936,7 @@ export default function App() {
       focus.x = (replacer!.x / replacer!.canvas.width) * 100;
       focus.y = (replacer!.y / replacer!.canvas.height) * 100;
     }
-    if (portrait) {
-      if (mobileFraming === 'fit' && !clipZoom.custom) {
-        focus.zoom = 1;
-        focus.x = 50;
-        focus.y = 50;
-      } else if (!clipZoom.custom) focus.zoom = Math.min(1.25, focus.zoom);
-    }
-    const clockNow = rendering ? v.currentTime : performance.now() / 1000;
+    const clockNow = rendering ? mediaTime(v) : performance.now() / 1000;
     const previousView = cameraView.current;
     const delta = previousView ? clockNow - previousView.clock : 0;
     if (
@@ -3600,7 +3944,7 @@ export default function App() {
       previousView.rendering === rendering &&
       delta >= 0 &&
       delta < 0.5 &&
-      Math.abs(v.currentTime - previousView.media) < 0.5
+      Math.abs(mediaTime(v) - previousView.media) < 0.5
     ) {
       const z = 1 - Math.exp(-delta / 0.28),
         pan = 1 - Math.exp(-delta / 0.18);
@@ -3608,12 +3952,11 @@ export default function App() {
       focus.x = previousView.x + (focus.x - previousView.x) * pan;
       focus.y = previousView.y + (focus.y - previousView.y) * pan;
     }
-    if (portrait && mobileFraming === 'fit' && !clipZoom.custom) {
+    cameraView.current = { ...focus, clock: clockNow, media: mediaTime(v), rendering };
+    if (portrait && !animated && settings.primaryMedia !== 'camera') {
+      mobileZoomView.current = {...focus};
       focus.zoom = 1;
-      focus.x = 50;
-      focus.y = 50;
     }
-    cameraView.current = { ...focus, clock: clockNow, media: v.currentTime, rendering };
     function footage(x: number, y: number, width: number, height: number) {
       if (
         !source ||
@@ -3622,29 +3965,32 @@ export default function App() {
         (!animated && settings.screenVisible === false)
       )
         return;
-      const fit = (portrait ? Math.min : Math.max)(width / v.videoWidth, height / v.videoHeight);
-      const shadowW = portrait ? Math.min(width, v.videoWidth * fit) : width,
-        shadowH = portrait ? Math.min(height, v.videoHeight * fit) : height;
-      frameShadow(
-        ctx,
-        x + (width - shadowW) / 2,
-        y + (height - shadowH) / 2,
-        shadowW,
-        shadowH,
-        18,
-        true,
-      );
+      const contain = portrait || displayLayout().screenFit === 'contain';
+      const fit = screenMediaScale({width:v.videoWidth, height:v.videoHeight}, {width,height}, contain);
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(x, y, width, height, 18);
+      const bounds = !animated && settings.primaryMedia !== 'camera'
+        ? zoomedScreenBounds({x,y,width,height},{width:1280,height:720},focus.zoom)
+        : {x,y,width,height};
+      const padding = Math.max(bounds.x, bounds.y, 1280-bounds.x-bounds.width, 720-bounds.y-bounds.height);
+      const radius = Math.min(settings.screenRadius ?? 18, Math.max(0,padding), bounds.width/2, bounds.height/2);
+      if ((settings.screenShadow ?? 0) > 0) {
+        ctx.save();
+        ctx.shadowColor = `rgba(0,0,0,${(settings.screenShadow ?? 0)/100*.55})`;
+        ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+        ctx.fillStyle = settings.background;
+        ctx.beginPath(); ctx.roundRect(bounds.x,bounds.y,bounds.width,bounds.height,radius); ctx.fill();
+        ctx.restore(); ctx.beginPath();
+      }
+      ctx.roundRect(bounds.x,bounds.y,bounds.width,bounds.height,radius);
       ctx.clip();
       const scale = fit * focus.zoom;
       const sw = v.videoWidth * scale,
         sh = v.videoHeight * scale;
       ctx.drawImage(
         screenImage,
-        x + frameOffset(width, sw, focus.x, follow),
-        y + frameOffset(height, sh, focus.y, follow),
+        expandedMediaOffset(bounds.x,bounds.width,sw,x+frameOffset(width,sw,focus.x,follow)),
+        expandedMediaOffset(bounds.y,bounds.height,sh,y+frameOffset(height,sh,focus.y,follow)),
         sw,
         sh,
       );
@@ -3652,6 +3998,11 @@ export default function App() {
     }
     const composition = cameraComposition();
     ctx.save();
+    if (!animated && settings.primaryMedia !== 'camera') {
+      const visibility = screenOpacity(pathSegment, mediaTime(v));
+      ctx.globalAlpha *= visibility;
+      syncClipAudio();
+    }
     if (!animated) {
       ctx.translate(composition.tx, composition.ty);
       ctx.scale(composition.scale, composition.scale);
@@ -3659,13 +4010,13 @@ export default function App() {
     if (animated && settings.scenes?.length) {
       const index = Math.max(
           0,
-          settings.scenes.reduce((last, s, i) => (s.time <= v.currentTime ? i : last), 0),
+          settings.scenes.reduce((last, s, i) => (s.time <= mediaTime(v) ? i : last), 0),
         ),
         scene = settings.scenes[index],
         next = settings.scenes[index + 1]?.time || duration,
         phase = Math.max(
           0,
-          Math.min(1, (v.currentTime - scene.time) / Math.max(0.1, next - scene.time)),
+          Math.min(1, (mediaTime(v) - scene.time) / Math.max(0.1, next - scene.time)),
         );
       ctx.fillStyle = '#6b7f58';
       ctx.font = 'bold 20px sans-serif';
@@ -3794,14 +4145,41 @@ export default function App() {
       }
       ctx.restore();
     } else if (settings.primaryMedia !== 'camera') footage(65, 50, 1150, 620);
+    function paintStyledCursor(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, style: import('./cursor').CursorAppearance) {
+      if (settings.showCursor === false) return;
+      // Keep pointer size independent of the screen layout and portrait zoom.
+      // The base portrait fit remains, so the size slider retains its existing meaning.
+      const outerZoom = portrait && !animated ? mobileZoomView.current.zoom : 1;
+      size /= Math.max(0.001, (animated ? 1 : composition.scale) * outerZoom);
+      const paint = (alpha: number, px: number, py: number) => {
+        ctx.save(); ctx.globalAlpha *= alpha;
+        if (style !== 'auto') paintCursor(ctx,px,py,size,style);
+        else paintAutomaticCursor(ctx,px,py,size,pointerLayers(settings.cursorTelemetry || [],mediaTime(v)));
+        ctx.restore();
+      };
+      if (settings.pointerMotion === 'recorded' && settings.cursorTelemetry?.length) {
+        const p = recordedPointerAt(settings.cursorTelemetry, mediaTime(v));
+        const before = recordedPointerAt(settings.cursorTelemetry, mediaTime(v) - .008);
+        if (p && before) {
+          let dx = (p.x - before.x) * v.videoWidth * baseScale * focus.zoom;
+          let dy = (p.y - before.y) * v.videoHeight * baseScale * focus.zoom;
+          const distance = Math.hypot(dx, dy), limit = size * .18;
+          if (distance > .8) {
+            const clamp = Math.min(1, limit / distance); dx *= clamp; dy *= clamp;
+            paint(.045, x - dx, y - dy); paint(.09, x - dx * .5, y - dy * .5);
+          }
+        }
+      }
+      paint(1,x,y);
+    }
     const manualSegment = recordingSegments.find(
-      (segment) => v.currentTime >= segment.start && v.currentTime <= segment.end,
+      (segment) => mediaTime(v) >= segment.start && mediaTime(v) <= segment.end,
     );
     const manual =
       settings.pointerMotion !== 'recorded' && settings.pointerMotion !== 'focus' && manualSegment
-        ? pointerAt(settings.manualPointer?.[manualSegment.id] || [], v.currentTime)
+        ? pointerAt(settings.manualPointer?.[manualSegment.id] || [], mediaTime(v))
         : null;
-    if (settings.screenVisible !== false && manual && settings.cursorStyle !== 'none') {
+    if (!pathSegment?.hidden && settings.screenVisible !== false && manual && settings.cursorStyle !== 'none') {
       const x = followsDrawnPath
         ? 65 +
           frameOffset(1150, baseWidth * focus.zoom, focus.x, true) +
@@ -3812,53 +4190,36 @@ export default function App() {
           frameOffset(620, baseHeight * focus.zoom, focus.y, true) +
           (manual.y - 50 - (620 - baseHeight) / 2) * focus.zoom
         : manual.y;
-      paintCursor(
+      paintStyledCursor(
         ctx,
-        x + Math.sin(v.currentTime * 1.5) * 5,
-        y + Math.cos(v.currentTime * 1.2) * 4,
+        x,
+        y,
         settings.cursorSize || 28,
         settings.cursorStyle || 'arrow',
       );
     }
     if (
-      settings.screenVisible !== false &&
+      !pathSegment?.hidden && settings.screenVisible !== false &&
       settings.cursorStyle !== 'none' &&
       !animated &&
       settings.pointerMotion === 'recorded' &&
       settings.cursorTelemetry?.length
     ) {
-      const p = pointerAt(
-        settings.cursorTelemetry.map((p) => ({ time: p.time, x: p.x, y: p.y })),
-        v.currentTime,
-      );
+      const p = recordedPointerAt(settings.cursorTelemetry,mediaTime(v));
       if (p) {
-        const scale = Math.max(1150 / v.videoWidth, 620 / v.videoHeight) * focus.zoom;
-        const x =
-          65 +
-          frameOffset(
-            1150,
-            v.videoWidth * scale,
-            focus.x,
-            Boolean(settings.autoZoom && settings.zoomSource === 'cursor'),
-          ) +
-          p.x * v.videoWidth * scale;
-        const y =
-          50 +
-          frameOffset(
-            620,
-            v.videoHeight * scale,
-            focus.y,
-            Boolean(settings.autoZoom && settings.zoomSource === 'cursor'),
-          ) +
-          p.y * v.videoHeight * scale;
+        const scale = baseScale * focus.zoom;
+        const pointerBounds = zoomedScreenBounds({x:65,y:50,width:1150,height:620},{width:1280,height:720},focus.zoom);
+        const x = expandedMediaOffset(pointerBounds.x,pointerBounds.width,v.videoWidth*scale,65+frameOffset(1150,v.videoWidth*scale,focus.x,follow)) + p.x*v.videoWidth*scale;
+        const y = expandedMediaOffset(pointerBounds.y,pointerBounds.height,v.videoHeight*scale,50+frameOffset(620,v.videoHeight*scale,focus.y,follow)) + p.y*v.videoHeight*scale;
         ctx.save();
         ctx.beginPath();
-        ctx.rect(65, 50, 1150, 620);
+        const cursorBounds = zoomedScreenBounds({x:65,y:50,width:1150,height:620},{width:1280,height:720},focus.zoom);
+        ctx.rect(cursorBounds.x,cursorBounds.y,cursorBounds.width,cursorBounds.height);
         ctx.clip();
-        paintCursor(
+        paintStyledCursor(
           ctx,
-          x + Math.sin(v.currentTime * 1.5) * 5,
-          y + Math.cos(v.currentTime * 1.2) * 4,
+          x,
+          y,
           settings.cursorSize || 28,
           settings.cursorStyle || 'arrow',
         );
@@ -3866,18 +4227,18 @@ export default function App() {
       }
     }
     if (
-      settings.screenVisible !== false &&
+      !pathSegment?.hidden && settings.screenVisible !== false &&
       settings.cursorStyle !== 'none' &&
       !animated &&
       settings.pointerMotion === 'focus'
     ) {
-      const t = v.currentTime;
+      const t = mediaTime(v);
       const x = Math.max(65, Math.min(1215, 65 + (1150 * focus.x) / 100 + Math.sin(t * 1.5) * 7));
       const y = Math.max(50, Math.min(670, 50 + (620 * focus.y) / 100 + Math.cos(t * 1.2) * 5));
-      paintCursor(
+      paintStyledCursor(
         ctx,
-        x + Math.sin(v.currentTime * 1.5) * 5,
-        y + Math.cos(v.currentTime * 1.2) * 4,
+        x,
+        y,
         settings.cursorSize || 28,
         settings.cursorStyle || 'arrow',
       );
@@ -3896,7 +4257,7 @@ export default function App() {
       const size = settings.cursorSize || 28;
       const x = 65 + (1150 * focus.x) / 100,
         y = 50 + (620 * focus.y) / 100;
-      paintCursor(ctx, x, y, size, pointer);
+      paintStyledCursor(ctx, x, y, size, pointer);
     }
     ctx.restore();
     const activeCamera = cameraForTime(v);
@@ -3905,7 +4266,7 @@ export default function App() {
       settings.camera &&
       activeCamera &&
       activeCamera.readyState >= 2 &&
-      cameraVisibility(v.currentTime) > 0
+      cameraVisibility(mediaTime(v)) > 0
     ) {
       const c = activeCamera,
         shape = settings.cameraShape || 'circle';
@@ -3918,24 +4279,14 @@ export default function App() {
       const cropWidth = (sourceRatio > ratio ? c.videoHeight * ratio : c.videoWidth) / 1.15,
         cropHeight = cropWidth / ratio;
       ctx.save();
-      animateCameraFrame(ctx, v.currentTime, x, y, width, height);
-      frameShadow(ctx, x, y, width, height, radius);
+      animateCameraFrame(ctx, mediaTime(v), x, y, width, height);
+      if (!settings.cameraCutout) frameShadow(ctx, x, y, width, height, radius);
       ctx.save();
       ctx.translate(x + width / 2, y + height / 2);
       ctx.beginPath();
-      ctx.roundRect(-width / 2, -height / 2, width, height, radius);
+      ctx.roundRect(-width / 2, -height / 2, width, height, settings.cameraCutout ? 0 : radius);
       ctx.clip();
-      ctx.drawImage(
-        c,
-        ((c.videoWidth - cropWidth) * (settings.cameraFocusX ?? 50)) / 100,
-        ((c.videoHeight - cropHeight) * (settings.cameraFocusY ?? 50)) / 100,
-        cropWidth,
-        cropHeight,
-        -width / 2,
-        -height / 2,
-        width,
-        height,
-      );
+      drawCameraContent(ctx, c, cropWidth, cropHeight, -width / 2, -height / 2, width, height);
       ctx.restore();
       ctx.restore();
     }
@@ -3953,7 +4304,7 @@ export default function App() {
           Math.max(
             0,
             durationOf(recordingSegments.slice(0, recordSegment.current)) +
-              v.currentTime -
+              mediaTime(v) -
               (recordingSegments[recordSegment.current]?.start || 0),
           ),
           panel === 'animate',
@@ -3974,7 +4325,7 @@ export default function App() {
     const v = video.current;
     const focus = viewAt(
       settings.focusPoints || [],
-      v.currentTime,
+      mediaTime(v),
       Boolean(settings.autoZoom),
       settings.zoom,
       settings.focusX,
@@ -4007,7 +4358,7 @@ export default function App() {
       announce('Pick the cursor inside the recording.');
       return;
     }
-    const seed = { time: v.currentTime, x, y, width: originalCursorSize };
+    const seed = { time: mediaTime(v), x, y, width: originalCursorSize };
     try {
       const processor = new CursorReplacer();
       processor.calibrate(v, seed);
@@ -4040,7 +4391,7 @@ export default function App() {
     )
       return;
     let alive = true;
-    const previous = v.currentTime;
+    const previous = mediaTime(v);
     v.pause();
     setPlaying(false);
     const restore = () => {
@@ -4050,7 +4401,7 @@ export default function App() {
         processor.calibrate(v, seed);
         cursorReplacer.current = processor;
         setCursorConfidence(1);
-        v.currentTime = previous;
+        seekMediaTime(v, previous);
       } catch {
         setSettings((s) => ({
           ...s,
@@ -4062,10 +4413,10 @@ export default function App() {
         announce('Select the recorded cursor again to enable replacement.');
       }
     };
-    if (Math.abs(v.currentTime - seed.time) < 0.02 && v.readyState >= 2) restore();
+    if (Math.abs(mediaTime(v) - seed.time) < 0.02 && v.readyState >= 2) restore();
     else {
       v.addEventListener('seeked', restore, { once: true });
-      v.currentTime = seed.time;
+      seekMediaTime(v, seed.time);
     }
     return () => {
       alive = false;
@@ -4079,10 +4430,19 @@ export default function App() {
   }, [settings.replaceCursor]);
   async function autoZoom() {
     if (!source) return;
+    const targetId = zoomEditorClip || activeSegments[selectedSegment]?.id;
+    const applyFollow = (action: (old: Settings) => Settings) => setSettings(old => {
+      if (!targetId) return old;
+      const next = action(clipEffectSettings(old, targetId));
+      return {...editClipEffects(old, activeSegments, targetId, next), clipZooms: {
+        ...Object.fromEntries(activeSegments.map(clip => [clip.id, old.clipZooms?.[clip.id] ?? old.zoom])),
+        [targetId]: old.clipZooms?.[targetId] && old.clipZooms[targetId] > 1 ? old.clipZooms[targetId] : next.zoom,
+      }, zoomTrackEnabled: true};
+    });
     if (settings.cursorTelemetry?.length) {
       video.current?.pause();
       setPlaying(false);
-      setSettings((s) => ({
+      applyFollow((s) => ({
         ...s,
         focusPoints: cursorFocusPoints(s.cursorTelemetry!, duration),
         autoZoom: true,
@@ -4091,7 +4451,7 @@ export default function App() {
         pointerMotion: 'recorded',
       }));
       cameraView.current = null;
-      seek(0);
+      seek(durationOf(activeSegments.slice(0, Math.max(0, activeSegments.findIndex(clip => clip.id === targetId)))));
       announce('Following recorded cursor with smooth activity zoom.');
       return;
     }
@@ -4114,14 +4474,14 @@ export default function App() {
         duration,
         setAnalysisProgress,
       );
-      setSettings((s) => ({
+      applyFollow((s) => ({
         ...s,
         focusPoints: points,
         autoZoom: true,
         zoomSource: 'cursor',
         zoom: s.zoom <= 1 ? 1.7 : s.zoom,
       }));
-      seek(0);
+      seek(durationOf(activeSegments.slice(0, Math.max(0, activeSegments.findIndex(clip => clip.id === targetId)))));
       announce(
         'Cursor-follow zoom ready. It returns to normal framing when cursor movement stops.',
       );
@@ -4180,7 +4540,7 @@ export default function App() {
       else {
         recordSegment.current = 0;
         if (video.current) {
-          video.current.currentTime = recordingSegments[0].start;
+          seekMediaTime(video.current, recordingSegments[0].start);
           await video.current.play();
         }
         if (camera.current) {
@@ -4213,6 +4573,10 @@ export default function App() {
     ctx.fillText(row, x, y);
   }
   async function exportVideo() {
+    if (settings.cameraCutout) {
+      try { await prepareCameraCutout(); }
+      catch { announce('Camera cutout is unavailable. Turn it off before exporting.'); return; }
+    }
     if (recreated) {
       await exportRecreated();
       return;
@@ -4226,7 +4590,7 @@ export default function App() {
     v.pause();
     soundPlayer.current.stop();
     setPlaying(false);
-    const previous = v.currentTime,
+    const previous = mediaTime(v),
       previousIndex = recordSegment.current,
       previousEdited = time;
     let output: MediaStream | undefined,
@@ -4252,10 +4616,10 @@ export default function App() {
       await graph.context.resume();
       graph.destination.stream.getAudioTracks().forEach((track) => output!.addTrack(track.clone()));
       const mixed = await soundtrack();
-      const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(
+      const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(
         (t) => MediaRecorder.isTypeSupported(t),
       );
-      if (!mime) throw new Error('WebM export is unavailable.');
+      if (!mime) throw new Error('Video export is unavailable.');
       const chunks: BlobPart[] = [];
       rec = new MediaRecorder(output, { mimeType: mime, videoBitsPerSecond: 18000000 });
       const result = new Promise<Blob>((resolve) => {
@@ -4266,7 +4630,7 @@ export default function App() {
       });
       let edited = 0;
       const seekMedia = async (element: HTMLVideoElement, position: number) => {
-        if (Math.abs(element.currentTime - position) < 0.01 && element.readyState >= 2) return;
+        if (Math.abs(mediaTime(element) - position) < 0.01 && element.readyState >= 2) return;
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             element.removeEventListener('seeked', done);
@@ -4277,13 +4641,16 @@ export default function App() {
             resolve();
           };
           element.addEventListener('seeked', done, { once: true });
-          element.currentTime = position;
+          seekMediaTime(element, position);
         });
       };
       for (let i = 0; i < recordingSegments.length && !exportAbort.current; i++) {
         const segment = recordingSegments[i];
+        recordSegment.current = i;
         await seekMedia(v, segment.start);
         if (camera.current && camSource) await seekMedia(camera.current, segment.start);
+        const cutoutCamera = cameraForTime(v);
+        if (settings.cameraCutout && cutoutCamera?.readyState && cutoutCamera.readyState >= 2) await prepareCameraCutoutFrame(cutoutCamera);
         drawFrame(ctx, v, edited, panel === 'animate', true);
         if (i === 0) rec.start();
         else rec.resume();
@@ -4296,10 +4663,10 @@ export default function App() {
         if (camera.current) void camera.current.play();
         await new Promise<void>((resolve) => {
           const frame = () => {
-            const progress = edited + Math.max(0, v.currentTime - segment.start);
+            const progress = edited + Math.max(0, mediaTime(v) - segment.start);
             drawFrame(ctx, v, progress, panel === 'animate', true);
             setTime(progress);
-            if (v.currentTime >= segment.end || v.ended || exportAbort.current) {
+            if (mediaTime(v) >= segment.end || v.ended || exportAbort.current) {
               resolve();
               return;
             }
@@ -4317,7 +4684,7 @@ export default function App() {
       rec.stop();
       const blob = await result;
       if (!exportAbort.current) {
-        download(blob, `${settings.title || 'demo'}.webm`);
+        download(blob, `${settings.title || 'demo'}.${mime.startsWith('video/mp4') ? 'mp4' : 'webm'}`);
         announce('Edited sequence exported with audio. Download finished video to save it.');
       }
     } catch (e) {
@@ -4331,7 +4698,7 @@ export default function App() {
       camera.current?.pause();
       output?.getTracks().forEach((track) => track.stop());
       recordSegment.current = previousIndex;
-      v.currentTime = previous;
+      seekMediaTime(v, previous);
       if (camera.current) camera.current.currentTime = previous;
       setTime(previousEdited);
       setExporting(false);
@@ -4341,11 +4708,18 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     setCompletedExport({ url, name });
   }
+  if (mediaWorkspace) return <Suspense fallback={<LoadingView label="Opening File studio…"/>}><MediaWorkspace initialFile={fileStudioFile} initialCaptions={settings.captions || []} onBack={() => {setMediaWorkspace(false);setHome(true);}} onEdit={async (selected, captions, language) => {
+    setFileStudioFile(selected);setCamSource('');
+    await receive(selected, 'screen');
+    setSettings(old => ({...old, title:selected.name.replace(/\.[^.]+$/,''), titleAuto:false, uploadKind:'video', uploadName:selected.name.replace(/\.[^.]+$/,''), camera:false, captions, captionsEnabled:Boolean(captions.length),captionSourceLanguage:language.source,captionOutputLanguage:language.output,captionDetectedLanguage:language.detected,captionVariants:language.variants,captionStyle:language.style,captionAppearance:language.appearance,captionLayout:language.placement}));
+    setFromFileStudio(true);setPanel('edit');setHome(false);setMediaWorkspace(false);
+  }} /></Suspense>;
   if (home)
     return (
-      <HomePage
+      <HomePage dark={darkTheme} onThemeChange={()=>setDarkTheme(value=>!value)}
         onOpen={(mode) => {
           window.scrollTo(0, 0);
+          if (mode === 'media') {setMediaWorkspace(true);setHome(false);return;}
           if (mode === 'website') navigateStudio('website');
           else {
             if (mode === 'screen') setScreenEnabled(true);
@@ -4356,85 +4730,30 @@ export default function App() {
       />
     );
   function canvasBackgroundControls() {
+    const presets = backgroundPresets.filter(p => backgroundTab === 'wallpaper' ? p.wallpaper : !p.wallpaper);
     return (
-      <div className="control-section canvas-background-settings">
-        <h3>Canvas background</h3>
-        <p>A little atmosphere goes a long way.</p>
-        <div className="swatches">
-          {['#e7e9df', '#e9dfe9', '#dee6f0', '#efe0d0', '#202b2b', '#f5f5f5'].map((color) => (
-            <button
-              key={color}
-              aria-label={`Background ${color}`}
-              style={{ background: color }}
-              className={
-                !settings.backgroundPreset && settings.background === color ? 'chosen' : ''
-              }
-              onClick={() => update('background', color)}
-            >
-              {!settings.backgroundPreset && settings.background === color && <Check size={15} />}
-            </button>
-          ))}
+      <div className="control-section canvas-background-settings compact-background-picker">
+        <h3>Background</h3>
+        <div className="background-type-tabs" role="tablist" aria-label="Background type">
+          {(['wallpaper','gradient','color','image'] as const).map(tab => <button key={tab} role="tab" aria-selected={backgroundTab === tab} onClick={() => setBackgroundTab(tab)}>{tab[0].toUpperCase()+tab.slice(1)}</button>)}
         </div>
-        <div className="background-preset-group">
-          <strong>Gradients</strong>
-          <div className="background-preset-grid">
-            {backgroundPresets
-              .filter((p) => !p.wallpaper)
-              .map((p) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  title={p.name}
-                  aria-label={p.name}
-                  aria-pressed={settings.backgroundPreset === p.id}
-                  style={{ background: backgroundCss(settings.background, p.id) }}
-                  onClick={() =>
-                    setSettings((old) => ({
-                      ...old,
-                      backgroundPreset: p.id,
-                      backgroundImage: undefined,
-                    }))
-                  }
-                >
-                  {settings.backgroundPreset === p.id && <Check size={16} />}
-                  <span>{p.name}</span>
-                </button>
-              ))}
+        {(backgroundTab === 'wallpaper' || backgroundTab === 'gradient') && <>
+          <div className="background-collection-label">{backgroundTab === 'wallpaper' ? 'Mac-inspired · Abstract' : 'Gradient collection'}</div>
+          <button className="random-background-button" onClick={() => {
+            const choices=presets.filter(p => p.id !== settings.backgroundPreset);
+            const picked=choices[Math.floor(Math.random()*choices.length)];
+            if(picked)setSettings(old => ({...old,backgroundPreset:picked.id,backgroundImage:undefined}));
+          }}><Sparkles size={14} /> Pick random {backgroundTab === 'wallpaper' ? 'wallpaper' : 'gradient'}</button>
+          <div className="wallpaper-thumbnail-grid" role="group" aria-label={backgroundTab === 'wallpaper' ? 'Wallpapers' : 'Gradients'}>
+            {presets.map(p => <button key={p.id} title={p.name} aria-label={p.name} aria-pressed={settings.backgroundPreset===p.id} style={{background:backgroundCss(settings.background,p.id)}} onClick={() => setSettings(old => ({...old,backgroundPreset:p.id,backgroundImage:undefined}))}>{settings.backgroundPreset===p.id && <Check size={13} />}</button>)}
           </div>
-          <strong>Mac-inspired wallpapers</strong>
-          <div className="background-preset-grid">
-            {backgroundPresets
-              .filter((p) => p.wallpaper)
-              .map((p) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  title={p.name}
-                  aria-label={p.name}
-                  aria-pressed={settings.backgroundPreset === p.id}
-                  style={{ background: backgroundCss(settings.background, p.id) }}
-                  onClick={() =>
-                    setSettings((old) => ({
-                      ...old,
-                      backgroundPreset: p.id,
-                      backgroundImage: undefined,
-                    }))
-                  }
-                >
-                  {settings.backgroundPreset === p.id && <Check size={16} />}
-                  <span>{p.name}</span>
-                </button>
-              ))}
-          </div>
-        </div>
-        <label className="color-field">
-          Custom color
-          <input
-            type="color"
-            value={settings.background}
-            onChange={(e) => update('background', e.target.value)}
-          />
-        </label>
+          <p className="selected-background-name">{backgroundPresets.find(p => p.id===settings.backgroundPreset)?.name || 'Choose a background'}</p>
+        </>}
+        {backgroundTab === 'color' && <>
+          <div className="swatches">{['#e7e9df','#e9dfe9','#dee6f0','#efe0d0','#202b2b','#f5f5f5','#111318','#000000'].map(color => <button key={color} aria-label={`Background ${color}`} style={{background:color}} onClick={() => setSettings(old => ({...old,background:color,backgroundPreset:undefined,backgroundImage:undefined}))}>{!settings.backgroundPreset && settings.background===color && <Check size={13} />}</button>)}</div>
+          <label className="color-field">Custom color<input type="color" value={settings.background} onChange={e => setSettings(old => ({...old,background:e.target.value,backgroundPreset:undefined,backgroundImage:undefined}))} /></label>
+        </>}
+        {backgroundTab === 'image' && <>
         <div className="background-upload">
           <label className="button quiet">
             <Upload size={15} />
@@ -4469,11 +4788,14 @@ export default function App() {
             </button>
           )}
         </div>
+
+        </>}
       </div>
     );
   }
+
   return (
-    <div className={`app ${panel !== 'edit' ? 'stitch-studio' : 'stitch-editor'}`}>
+    <div className={`app studio-glass ${darkTheme ? 'theme-dark' : ''} ${panel !== 'edit' ? 'stitch-studio' : 'stitch-editor'}`}>
       <ExportDialog
         rendering={exporting}
         progress={(time / Math.max(0.1, displayDuration)) * 100}
@@ -4633,12 +4955,26 @@ export default function App() {
           </div>,
           floatingController.document.body,
         )}
+      {laneAddMenu && <div className="timeline-add-overlay" onClick={()=>setLaneAddMenu(null)}><div className="timeline-add-menu" role="dialog" aria-label="Add feature at playhead" style={{left:Math.min(laneAddMenu.x,window.innerWidth-252),top:Math.min(laneAddMenu.y,window.innerHeight-145)}} onClick={e=>e.stopPropagation()}>
+        <strong>{clock(laneAddMenu.time)} · Add {laneAddMenu.lane === 'captions' ? 'caption' : laneAddMenu.lane}</strong>
+        <button onClick={()=>{
+          const {lane,time:at}=laneAddMenu;
+          const mapped=mapSegments(activeSegments,at), clip=activeSegments[mapped.index];
+          seek(at);setSelectedSegment(mapped.index);
+          if(lane==='camera'){appendCamera.current=false;setTimelineSelection('camera');setSelectedCameraClip(null);setCameraSetupOpen(true);}
+          else if(lane==='captions') {setSettings(old=>({...old,captionsEnabled:true,captions:[...(old.captions||[]),{start:mapped.time,end:Math.min(clip.end,mapped.time+2),text:'New caption'}]}));setCaptionSelection((settings.captions||[]).length);setTimelineSelection('caption');}
+          else if(lane==='zoom'){addTimelineZoom(clip.id);setSettings(old=>({...old,featureRanges:{...old.featureRanges,['zoom:'+clip.id]:{start:mapped.time,end:clip.end}}}));}
+          else if(lane==='cursor'){setTimelineSelection('cursor');setCursorExpanded(true);setSettings(old=>editClipEffects({...old,featureRanges:{...old.featureRanges,['cursor:'+clip.id]:{start:mapped.time,end:clip.end}}},activeSegments,clip.id,{cursorStyle:'arrow',showCursor:true}));}
+          else if(lane==='music'){setSelectedMusicClip(null);pendingMusicTime.current=at;setTimelineSelection('music');setMusicEditorOpen(true);setSettings(old=>({...old,featureRanges:{...old.featureRanges,music:{start:at,end:displayDuration}}}));}
+          if(mobileView)setMobileFeatureOpen(true);setLaneAddMenu(null);
+        }}>Add here</button><button onClick={()=>setLaneAddMenu(null)}>Cancel</button>
+      </div></div>}
       <main>
         <header>
           <div className="studio-location">
-            <nav className="header-studio-icons" aria-label="Studio navigation">
+            <details className="studio-nav-menu"><summary aria-label="Choose studio"><Film size={17}/> Studios <ChevronRight size={12}/></summary><nav className="header-studio-icons" aria-label="Studio navigation">
               {studioLinks()}
-            </nav>
+            </nav></details>
             {(recording || captureArmed) && (
               <div className="nav-recording-status" role="status">
                 <span className="nav-recording-dot" />
@@ -4658,7 +4994,9 @@ export default function App() {
               <strong>{sectionLabels[panel]}</strong>
             </div>
           </div>
+          {panel === 'edit' && <div id="project-header-slot"/>}
           <div className="header-actions">
+            {panel === 'edit' && <><details className="header-capture-menu"><summary aria-label="Capture settings" title="Capture settings"><Layers size={15}/><span className="header-action-label">Capture</span></summary><div id="header-capture-slot"/></details><button className="button lime header-record" aria-label={recording ? 'Stop recording' : 'Record screen'} title={recording ? 'Stop recording' : 'Record screen'} disabled={exporting||captureArmed} onClick={()=>recording?stopRecording():void startRecording()}>{recording?<Square size={16}/>:<svg className="header-record-symbol" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="4" fill="currentColor"/></svg>}<span className="header-action-label">{recording?'Stop':'Record'}</span></button></>}
             <span className="saved">
               <Check size={14} />
               {saved ? 'Saved on device' : 'Saving…'}
@@ -4786,7 +5124,7 @@ export default function App() {
           </small>
         </details>
         {panel === 'website' && (
-          <Suspense fallback={<p>Loading AI director…</p>}>
+          <Suspense fallback={<LoadingView label="Loading AI director…"/>}>
             <AIDirector
               source={source}
               website={panel === 'website'}
@@ -4820,7 +5158,7 @@ export default function App() {
               </div>
             </section>
             {panel === 'edit' && (
-              <section className="capture-bar">
+              <StudioSlot targetId="header-capture-slot" active={!isNativeMac()}><section className="capture-bar">
                 <div className="capture-label">
                   <span className="capture-icon">
                     <Video size={21} />
@@ -4908,12 +5246,13 @@ export default function App() {
                         }
                       >
                         {recording ? <Square size={15} /> : <span className="record-dot" />}
-                        {recording ? `Stop ${clock(recordSeconds)}` : 'Start recording'}
+                        {recording ? `Stop ${clock(recordSeconds)}` : source ? 'Record next clip' : 'Start recording'}
                       </button>
+                      {!recording && !captureArmed && source && <button className="button" disabled={exporting} onClick={async () => {if (!window.confirm('Start a new video on a blank canvas? Export or save any edits you want to keep first.')) return; if (!await clearRecording()) return; appendCapture.current = false; await startRecording(true, true);}}>Record new video</button>}
                     </>
                   )}
                 </div>
-              </section>
+              </section></StudioSlot>
             )}
             {panel === 'edit' && (
               <div className="capture-cursor-note" role="status">
@@ -4984,7 +5323,7 @@ export default function App() {
               </section>
             )}
             {panel === 'animate' && animationMode === 'templates' && (
-              <Suspense fallback={<p role="status">Loading motion components…</p>}>
+              <Suspense fallback={<LoadingView label="Loading motion components…"/>}>
                 <RemotionDesignStudio />
               </Suspense>
             )}
@@ -5136,14 +5475,26 @@ export default function App() {
                     )}
                   </div>
                 )}
-                <div className="editor">
-                  <section className="stage-area">
-                    <div className="stage-heading">
+                <div style={{'--preview-ratio': portrait ? 720/1280 : 1280/720} as React.CSSProperties} className={`editor ${previewFullscreen ? 'preview-fullscreen' : ''}`}>
+                  <section className="stage-area" onClickCapture={event=>{
+                    if(!window.matchMedia('(max-width:800px)').matches)return;
+                    const target=event.target as HTMLElement;
+                    if(target.closest('.editor-lane button,.timeline-segment,.camera-linked-clip'))setMobileFeatureOpen(true);
+                  }}>
+                    <div id="mobile-layout-slot"/>
+                    <StudioSlot targetId="project-header-slot" active={panel==='edit'&&!isNativeMac()}><div className="stage-heading">
+                      <button type="button" className="theme-toggle" aria-label={darkTheme ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setDarkTheme(value => !value)}>{darkTheme ? '☀' : '☾'}</button>
                       <input
                         aria-label="Project title"
                         value={settings.title}
                         onChange={(e) => update('title', e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveProjectName(); } }}
+                        maxLength={120}
                       />
+                      <button type="button" className="save-project-name" onClick={() => void saveProjectName()}
+                        disabled={savingName || !settings.title.trim() || (isNativeMac() && !source)}>
+                        {savingName ? 'Saving…' : 'Save name'}
+                      </button>
                       <div className="output-format" role="group" aria-label="Video format">
                         {(['16:9', '9:16'] as const).map((format) => (
                           <button
@@ -5165,16 +5516,14 @@ export default function App() {
                         ))}
                         <small>{portrait ? '1080 × 1920' : '1920 × 1080'} export</small>
                       </div>
-                    </div>
+                    </div></StudioSlot>
                     {panel === 'edit' && !recreated && (
-                      <section
+                      <InspectorControls layout><section
                         className={`arrange-panel ${arrangeDisplays ? 'editing' : ''}`}
                         aria-label="Clip layout editor"
                       >
                         <div className="arrange-panel-heading">
-                          <div className="arrange-heading-icon">
-                            <Layers size={17} />
-                          </div>
+
                           <div>
                             <strong>
                               Clip layout <span>{selectedSegment + 1}</span>
@@ -5335,12 +5684,16 @@ export default function App() {
                                 Reset layout
                               </button>
                             </div>
+                            <div className="layout-size-presets" role="group" aria-label="Screen sizing presets">
+                              <button type="button" onClick={() => setSettings((old) => ({...old, displayLayouts: {...old.displayLayouts, [layoutKey()]: {...displayLayout(), screenX: 50, screenY: 50, screenScale: 1, screenFit: 'contain'}}}))}>Fit screen</button>
+                              {!portrait && <button type="button" onClick={() => setSettings((old) => ({...old, mobileCameraLayout: 'overlay', displayLayouts: {...old.displayLayouts, [layoutKey()]: {...displayLayout(), screenX: 50, screenY: 50, screenScale: Math.max(1280 / 1150, 720 / 620), screenFit: 'cover'}}}))}>Fill canvas</button>}
+                            </div>
                             <p className="arrange-hint">
                               Drag to move · corner handle to resize · settings saved for this clip
                             </p>
                           </>
                         )}
-                      </section>
+                      </section></InspectorControls>
                     )}
                     <div
                       className={`stage studio-preview-stage ${portrait ? 'stage-portrait' : 'stage-landscape'} ${pickingCursor ? 'picking-cursor' : ''}`}
@@ -5349,6 +5702,7 @@ export default function App() {
                         aspectRatio: portrait ? '9 / 16' : '16 / 9',
                       }}
                     >
+                        <button type="button" className="fullscreen-preview-toggle" aria-label={previewFullscreen ? 'Exit fullscreen preview' : 'Fullscreen preview'} title={previewFullscreen ? 'Return to editor (Esc)' : 'Fullscreen preview'} onClick={() => setPreviewFullscreen(value => !value)}><Scan size={17} /></button>
                       {panel === 'website' && !settings.websiteDemo && (
                         <div className="website-stage-empty">
                           <ArrowUpRight size={34} />
@@ -5575,21 +5929,21 @@ export default function App() {
                           }}
                           onLoadedMetadata={(e) => {
                             const v = e.currentTarget;
-                            if (Number.isFinite(v.duration)) {
-                              setDuration(v.duration);
-                              localStorage.setItem('frame-duration', String(v.duration));
+                            if (Number.isFinite(mediaDuration(v))) {
+                              setDuration(mediaDuration(v));
+                              localStorage.setItem('frame-duration', String(mediaDuration(v)));
                               if (pendingSourceSeek.current !== null) {
-                                v.currentTime = pendingSourceSeek.current;
+                                seekMediaTime(v, pendingSourceSeek.current);
                                 pendingSourceSeek.current = null;
                               }
                             } else if (!duration) {
-                              v.currentTime = 1e10;
+                              seekMediaTime(v, 1e10);
                               v.addEventListener(
                                 'timeupdate',
                                 () => {
-                                  if (Number.isFinite(v.duration)) {
-                                    setDuration(v.duration);
-                                    v.currentTime = pendingSourceSeek.current ?? 0;
+                                  if (Number.isFinite(mediaDuration(v))) {
+                                    setDuration(mediaDuration(v));
+                                    seekMediaTime(v, pendingSourceSeek.current ?? 0);
                                     pendingSourceSeek.current = null;
                                   }
                                 },
@@ -5602,7 +5956,7 @@ export default function App() {
                           }}
                           onDurationChange={(e) => {
                             if (Number.isFinite(e.currentTarget.duration)) {
-                              setDuration(e.currentTarget.duration);
+                              setDuration(mediaDuration(e.currentTarget));
                             }
                           }}
                           onTimeUpdate={(e) => onRecordingTime(e.currentTarget)}
@@ -5655,52 +6009,50 @@ export default function App() {
                         />
                       )}
                     </div>
-                    <div className="transport">
-                      <div>
+                    <StudioSlot targetId="timeline-playback-slot" active={panel==='edit'&&!!source&&!recreated&&!previewFullscreen}><div className="transport" role="group" aria-label="Preview playback">
+                      <div className="transport-playback"><div id="playback-edit-tools-slot"/><div className="transport-history"><button aria-label="Undo last edit" title="Undo" disabled={!canUndo||recording||exporting} onClick={undoLastEdit}><Undo2 size={16}/></button><button aria-label="Redo last edit" title="Redo" disabled={!canRedo||recording||exporting} onClick={redoLastEdit}><Redo2 size={16}/></button></div>
+                            <button
+                              className="timeline-icon"
+                              aria-label="Selected clip volume"
+                              title="Selected clip volume"
+                              disabled={!source || !['video', 'camera'].includes(timelineSelection)}
+                              onClick={() => setClipVolumeOpen(!clipVolumeOpen)}
+                            >
+                              <Volume2 size={17} />
+                            </button>
                         <button
+                          className="transport-play"
                           aria-label={playing ? 'Pause' : 'Play'}
-                          disabled={
-                            (panel === 'website' && !recreated) ||
-                            (!source && !recreated) ||
-                            exporting
-                          }
+                          disabled={(panel === 'website' && !recreated) || (!source && !recreated) || exporting}
                           onClick={() => void togglePlay()}
                         >
-                          {playing ? <Pause size={18} /> : <Play size={18} />}
+                          {playing ? <Pause size={17} /> : <Play size={17} />}
                         </button>
-                        <span>
+                        <span className="transport-time" aria-label="Playback time">
                           {clock(time)} <em>/ {clock(displayDuration)}</em>
                         </span>
                       </div>
-                      {source && panel === 'edit' && (
-                        <button
-                          className="import-link"
-                          title="Remove current recording and all camera takes"
-                          disabled={
-                            recording || exporting || cameraTake || captionBusy || generating
-                          }
-                          onClick={() => void clearRecording()}
-                        >
-                          <Trash2 size={14} /> Clear recording
-                        </button>
-                      )}
-                      <span className="preview-label">
-                        {recreated
-                          ? 'RECREATED DEMO'
-                          : source
-                            ? 'YOUR RECORDING'
-                            : 'EXAMPLE CANVAS'}
-                      </span>
-                      {panel !== 'website' && (
-                        <button
-                          className="import-link"
-                          onClick={() => file.current?.click()}
-                          disabled={recording || exporting}
-                        >
-                          <Upload size={14} /> Import video
-                        </button>
-                      )}
-                    </div>
+                      <div className="transport-actions">
+                        {panel !== 'website' && (
+                          <button className="transport-import" onClick={() => file.current?.click()} disabled={recording || exporting}>
+                            <Upload size={15} /> <span>Import video</span>
+                          </button>
+                        )}
+                        {source && panel === 'edit' && (
+                          <button
+                            className="transport-clear"
+                            aria-label="Clear recording"
+                            title="Clear recording and camera takes"
+                            disabled={recording || exporting || cameraTake || captionBusy || generating}
+                            onClick={() => void clearRecording()}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                        <span className="transport-divider" aria-hidden="true" />
+
+                      </div>
+                    </div></StudioSlot>
                     {(panel !== 'website' || recreated) &&
                       (!source && !recreated ? (
                         <EmptyStudioTimeline
@@ -5730,141 +6082,27 @@ export default function App() {
                           }
                         />
                       ) : (
-                        <Timeline>
+                        <Timeline className={mobileToolsOpen ? 'mobile-tools-open' : ''}>
                           <TimelineToolbar
+                            playback={<div id="timeline-playback-slot"/>}
                             hint={
                               source
                                 ? 'Drag to scrub your recording'
                                 : 'Your story will unfold here'
                             }
                           >
-                            <button
-                              className="timeline-icon"
-                              aria-label="Selected clip volume"
-                              title="Selected clip volume"
-                              disabled={!source || !['video', 'camera'].includes(timelineSelection)}
-                              onClick={() => setClipVolumeOpen(!clipVolumeOpen)}
-                            >
-                              <Volume2 size={17} />
-                            </button>
-                            <details className="timeline-mixer">
-                              <summary
-                                className="timeline-icon"
-                                aria-label="Music controls"
-                                title="Music controls"
-                              >
-                                <Music2 size={17} />
-                              </summary>
-                              <div className="timeline-audio-panel">
-                                <h3>Music & sound</h3>
-                                <label className="auto-zoom-switch">
-                                  <input
-                                    type="checkbox"
-                                    checked={(settings.demoAudio || defaultAudio).effects}
-                                    onChange={(e) =>
-                                      update('demoAudio', {
-                                        ...(settings.demoAudio || defaultAudio),
-                                        effects: e.target.checked,
-                                      })
-                                    }
-                                  />{' '}
-                                  Transition sound effects
-                                </label>
-                                <label>
-                                  Built-in music
-                                  <select
-                                    aria-label="Built-in music"
-                                    value={
-                                      (settings.demoAudio || defaultAudio).musicTrack || 'none'
-                                    }
-                                    onChange={(e) => {
-                                      soundPlayer.current.stop();
-                                      update('demoAudio', {
-                                        ...(settings.demoAudio || defaultAudio),
-                                        musicTrack: e.target.value as
-                                          'none' | 'warm' | 'pulse' | 'ambient',
-                                      });
-                                    }}
-                                  >
-                                    <option value="none">No music</option>
-                                    <option value="warm">Warm keys · gentle demo rhythm</option>
-                                    <option value="pulse">Studio pulse · upbeat reveals</option>
-                                    <option value="ambient">Soft atmosphere · slow layouts</option>
-                                  </select>
-                                </label>
-                                <button
-                                  className="button quiet"
-                                  disabled={exporting}
-                                  onClick={() => musicInput.current?.click()}
-                                >
-                                  Upload background music
-                                </button>
-                                <label>
-                                  Music volume
-                                  <input
-                                    aria-label="Music volume"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.01"
-                                    value={(settings.demoAudio || defaultAudio).musicVolume}
-                                    onChange={(e) =>
-                                      update('demoAudio', {
-                                        ...(settings.demoAudio || defaultAudio),
-                                        musicVolume: +e.target.value,
-                                      })
-                                    }
-                                  />
-                                </label>
-                                <label>
-                                  Effects volume
-                                  <input
-                                    aria-label="Effects volume"
-                                    type="range"
-                                    min="0"
-                                    max=".6"
-                                    step="0.01"
-                                    value={(settings.demoAudio || defaultAudio).effectVolume}
-                                    onChange={(e) =>
-                                      update('demoAudio', {
-                                        ...(settings.demoAudio || defaultAudio),
-                                        effectVolume: +e.target.value,
-                                      })
-                                    }
-                                  />
-                                </label>
-                                {musicReady && (
-                                  <button
-                                    className="button quiet"
-                                    onClick={() => {
-                                      musicBuffer.current = undefined;
-                                      setMusicReady(false);
-                                      update('musicName', undefined);
-                                      void storeAsset('music', new Blob());
-                                      soundPlayer.current.stop();
-                                    }}
-                                  >
-                                    Remove music
-                                  </button>
-                                )}
-                              </div>
-                            </details>
-                            <button
-                              className="timeline-icon"
-                              aria-label="Upload music"
-                              title="Upload music"
-                              disabled={exporting}
-                              onClick={() => musicInput.current?.click()}
-                            >
-                              <Upload size={17} />
-                            </button>
+                            <StudioSlot targetId="playback-edit-tools-slot" active={true}><div className="playback-edit-tools">
                             <button
                               className="timeline-icon"
                               aria-label="Split at playhead"
                               title="Split at playhead"
                               disabled={exporting || cameraTake || (!source && !recreated)}
                               onClick={() =>
-                                selectedCameraClip
+                                timelineSelection === 'music'
+                                  ? splitMusicClip()
+                                  : timelineSelection === 'caption'
+                                  ? splitCaptionAtPlayhead()
+                                  : timelineSelection === 'camera' && selectedCameraClip
                                   ? splitCameraClip()
                                   : saveSegments(splitSegments(activeSegments, time))
                               }
@@ -5887,7 +6125,6 @@ export default function App() {
                               onClick={deleteTimelineSelection}
                             >
                               <Trash2 size={17} />
-                              <span>Delete</span>
                             </button>
                             {panel === 'edit' && (
                               <button
@@ -5912,21 +6149,10 @@ export default function App() {
                                 />
                               </button>
                             )}
-                            {source && (
-                              <button
-                                type="button"
-                                className="timeline-icon"
-                                title="Append screen recording or video"
-                                aria-label="Append screen clip"
-                                disabled={recording || exporting || joining}
-                                onClick={openAppendScreen}
-                              >
-                                <Plus size={17} />
-                              </button>
-                            )}
+                            </div></StudioSlot>
                           </TimelineToolbar>
                           {clipVolumeOpen && ['video', 'camera'].includes(timelineSelection) && (
-                            <div
+                            <InspectorControls><div
                               className="clip-volume-strip"
                               role="group"
                               aria-label="Selected clip audio"
@@ -5977,8 +6203,9 @@ export default function App() {
                               >
                                 ×
                               </button>
-                            </div>
+                            </div></InspectorControls>
                           )}
+                          <TimelineViewport>
                           <div
                             className="ruler"
                             onClick={(e) => seekLane(e, 'timeline')}
@@ -5997,16 +6224,14 @@ export default function App() {
                           >
                             <span
                               className="ruler-playhead"
-                              style={{ left: `${(time / timelineDuration) * 100}%` }}
+                              style={{ left: `calc(${(time / timelineDuration) * 100}% * var(--timeline-clip-scale, 1))` }}
                             />
-                            {[0, 1, 2, 3, 4, 5].map((n) => (
-                              <span key={n}>{clock((n * timelineDuration) / 5)}</span>
-                            ))}
+                            <TimelineTicks duration={timelineDuration} />
                           </div>
                           {panel !== 'edit' ||
                           settings.primaryMedia === 'camera' ||
                           (source && settings.screenVisible !== false) ? (
-                            <div className="track" onClickCapture={(e) => seekLane(e, 'video')}>
+                            <div className="track primary-screen-track" onDragOver={(e) => e.preventDefault()} onDrop={dropScreenClip} onClickCapture={(e) => seekLane(e, 'video')}>
                               <TimelineTrackLabel>
                                 {settings.primaryMedia === 'camera' ? (
                                   <Camera size={14} />
@@ -6016,7 +6241,7 @@ export default function App() {
                                 <strong>
                                   {settings.primaryMedia === 'camera'
                                     ? 'Camera Video'
-                                    : 'Screen Video'}
+                                    : 'Screen'}
                                 </strong>
                                 {panel === 'edit' &&
                                   settings.primaryMedia !== 'camera' &&
@@ -6035,37 +6260,33 @@ export default function App() {
                               <div className="segment-track">
                                 {laneMarkers('video')}
                                 {activeSegments.map((segment, i) => (
+                                  <div className={`screen-clip-slot ${segment.gap ? 'timeline-gap-slot' : ''}`} key={segment.id}
+                                    style={{flex: `${Math.max(0.25, segment.end - segment.start)} 1 0`}}
+                                    aria-label={`Clip ${i + 1} time slot`}
+                                  >
+                                  {!segment.gap && <button type="button" className="clip-volume-shortcut" aria-label={`Volume for video clip ${i+1}`} title={`Volume for video clip ${i+1}`} onClick={e=>{e.stopPropagation();setSelectedSegment(i);setTimelineSelection('video');setClipVolumeOpen(true);if(mobileView)setMobileFeatureOpen(true);}}><Volume2 size={13}/></button>}
                                   <button
-                                    key={segment.id}
-                                    className={`timeline-segment ${timelineSelection === 'video' && selectedSegment === i ? 'selected' : ''}`}
+                                    className={`timeline-segment ${segment.hidden ? 'clip-picture-hidden' : ''} ${timelineSelection === 'video' && selectedSegment === i ? 'selected' : ''}`}
                                     style={{
-                                      flex: `${Math.max(0.25, segment.end - segment.start)} 1 0`,
+                                      left: `${!recreated && settings.primaryMedia !== 'camera' ? (screenRange(segment).start - segment.start) / (segment.end - segment.start) * 100 : 0}%`,
+                                      width: `${!recreated && settings.primaryMedia !== 'camera' ? (screenRange(segment).end - screenRange(segment).start) / (segment.end - segment.start) * 100 : 100}%`,
                                       minWidth: 0,
                                     }}
-                                    draggable={!exporting}
+                                    draggable={!exporting && !segment.gap}
                                     aria-label={`Select timeline segment ${i + 1}`}
                                     onDragStart={(e) => {
                                       if ((e.target as HTMLElement).closest('.clip-edge')) {
                                         e.preventDefault();
                                         return;
                                       }
+                                      const box = e.currentTarget.getBoundingClientRect();
+                                      const range = screenRange(segment);
+                                      draggedClipOffset.current = range.start - segment.start + (e.clientX - box.left) / Math.max(1, box.width) * (range.end - range.start);
                                       draggedSegment.current = i;
                                       e.dataTransfer.setData('text/plain', String(i));
                                       e.dataTransfer.effectAllowed = 'move';
                                     }}
                                     onDragOver={(e) => e.preventDefault()}
-                                    onDrop={(e) => {
-                                      e.preventDefault();
-                                      const from = draggedSegment.current;
-                                      if (from !== null && from !== i) {
-                                        const list = [...activeSegments];
-                                        const [moved] = list.splice(from, 1);
-                                        list.splice(i, 0, moved);
-                                        saveSegments(list);
-                                        setSelectedSegment(i);
-                                      }
-                                      draggedSegment.current = null;
-                                    }}
                                     onClick={(e) => {
                                       if ((e.target as HTMLElement).closest('.clip-edge')) return;
                                       setTimelineSelection('video');
@@ -6078,7 +6299,9 @@ export default function App() {
                                       );
                                       seek(
                                         durationOf(activeSegments.slice(0, i)) +
-                                          fraction * (segment.end - segment.start),
+                                          (!recreated && settings.primaryMedia !== 'camera'
+                                            ? screenRange(segment).start - segment.start + fraction * (screenRange(segment).end - screenRange(segment).start)
+                                            : fraction * (segment.end - segment.start)),
                                       );
                                     }}
                                   >
@@ -6089,11 +6312,17 @@ export default function App() {
                                       aria-label={`Trim start of clip ${i + 1}`}
                                       aria-valuemin={0}
                                       aria-valuemax={segment.end - 0.25}
-                                      aria-valuenow={segment.start}
+                                      aria-valuenow={!recreated && settings.primaryMedia !== 'camera' ? screenRange(segment).start : segment.start}
                                       onPointerDown={(e) => beginTrim(e, i, 'start')}
                                       onKeyDown={(e) => {
                                         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                                           e.preventDefault();
+                                          if (!recreated && settings.primaryMedia !== 'camera') {
+                                            update('recordingSegments', activeSegments.map((s, j) => j === i
+                                              ? trimScreenEdge(s, 'start', screenRange(s).start + (e.key === 'ArrowRight' ? 0.1 : -0.1)) : s));
+                                            setCompletedExport(null);
+                                            return;
+                                          }
                                           saveSegments(
                                             activeSegments.map((s, j) =>
                                               j === i
@@ -6114,12 +6343,14 @@ export default function App() {
                                         }
                                       }}
                                     />
+                                    <ClipWaveform url={(() => {const asset=settings.screenAssets?.find(a => segment.start >= a.start && segment.start < a.start+a.duration);return asset && asset.key !== 'screen' ? screenAssetURLs[asset.id] : source || undefined;})()} from={screenRange(segment).start-(settings.screenAssets?.find(a=>segment.start>=a.start&&segment.start<a.start+a.duration)?.start||0)} to={screenRange(segment).end-(settings.screenAssets?.find(a=>segment.start>=a.start&&segment.start<a.start+a.duration)?.start||0)}/>
                                     <Film size={14} />
                                     <span className="clip-label">
                                       {recreated
                                         ? activeChapters[i]?.label || 'Scene'
                                         : `${settings.primaryMedia === 'camera' ? 'Camera clip' : 'Video clip'} ${String(i + 1).padStart(2, '0')}`}
                                     </span>
+                                    <small className="clip-duration">{clock(screenRange(segment).end-screenRange(segment).start)}</small>
                                     <span
                                       className="clip-edge right"
                                       role="slider"
@@ -6127,11 +6358,17 @@ export default function App() {
                                       aria-label={`Trim end of clip ${i + 1}`}
                                       aria-valuemin={segment.start + 0.25}
                                       aria-valuemax={recreated ? websiteRawDuration : duration}
-                                      aria-valuenow={segment.end}
+                                      aria-valuenow={!recreated && settings.primaryMedia !== 'camera' ? screenRange(segment).end : segment.end}
                                       onPointerDown={(e) => beginTrim(e, i, 'end')}
                                       onKeyDown={(e) => {
                                         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                                           e.preventDefault();
+                                          if (!recreated && settings.primaryMedia !== 'camera') {
+                                            update('recordingSegments', activeSegments.map((s, j) => j === i
+                                              ? trimScreenEdge(s, 'end', screenRange(s).end + (e.key === 'ArrowRight' ? 0.1 : -0.1)) : s));
+                                            setCompletedExport(null);
+                                            return;
+                                          }
                                           saveSegments(
                                             activeSegments.map((s, j) =>
                                               j === i
@@ -6153,6 +6390,7 @@ export default function App() {
                                       }}
                                     />
                                   </button>
+                                  </div>
                                 ))}
                                 <div
                                   className="timeline-playhead"
@@ -6205,24 +6443,14 @@ export default function App() {
                             <div className="editor-lane">
                               <TimelineTrackLabel>
                                 <Monitor size={14} />
-                                <strong>Screen Video</strong>
+                                <strong>Screen</strong>
                               </TimelineTrackLabel>
                               <div className="empty-track-actions">
-                                {source ? (
-                                  <button
-                                    disabled={recording || exporting}
-                                    onClick={() => update('screenVisible', true)}
-                                  >
-                                    + Add screen
-                                  </button>
-                                ) : (
-                                  <button
-                                    disabled={recording || exporting}
-                                    onClick={importScreenTrack}
-                                  >
-                                    + Add screen
-                                  </button>
-                                )}
+                                <button aria-label="Add screen" title="Add screen"
+                                  disabled={recording || exporting || joining}
+                                  onClick={() => void startRecording(true)}
+                                >
+                                  {<Plus size={16} aria-hidden="true" />} </button>
                                 <button
                                   disabled={recording || exporting}
                                   onClick={importScreenTrack}
@@ -6242,7 +6470,7 @@ export default function App() {
                               >
                                 <TimelineTrackLabel>
                                   <Camera size={15} />
-                                  <strong>Camera PIP</strong>
+                                  <strong>Camera</strong>
                                   <button
                                     className="track-add"
                                     aria-label="Add camera clip"
@@ -6296,7 +6524,7 @@ export default function App() {
                                           .map((take, n) => (
                                             <div
                                               key={take.id}
-                                              className={`camera-linked-clip ${timelineSelection === 'camera' && selectedCameraClip === take.id ? 'selected' : ''}`}
+                                              className={`camera-linked-clip ${take.hidden ? 'clip-picture-hidden' : ''} ${timelineSelection === 'camera' && selectedCameraClip === take.id ? 'selected' : ''}`}
                                               onPointerDown={(e) => dragCameraClip(e, take.id)}
                                               onClick={(e) => {
                                                 if (cameraMoveClick.current) {
@@ -6371,23 +6599,22 @@ export default function App() {
                               <div className="editor-lane">
                                 <TimelineTrackLabel>
                                   <Camera size={14} />
-                                  <strong>Camera PIP</strong>
+                                  <strong>Camera</strong>
                                 </TimelineTrackLabel>
                                 <div className="empty-track-actions">
-                                  <button
+                                  <button aria-label="Add camera" title="Add camera"
                                     disabled={
                                       !source || cameraTake || exporting || recording || joining
                                     }
                                     onClick={openAppendCamera}
                                   >
-                                    + Add camera
-                                  </button>
+                                    {<Plus size={16} aria-hidden="true" />} </button>
                                   <small>{!source ? 'Add screen footage first' : ''}</small>
                                 </div>
                               </div>
                             )}
-                          {panel === 'edit' && cameraSetupOpen && (
-                            <div className="lane-inline-editor camera-lane-setup">
+                          {panel === 'edit' && timelineSelection === 'camera' && cameraSetupOpen && (
+                            <InspectorControls><div className="lane-inline-editor camera-lane-setup">
                               <div>
                                 <strong>Add camera clip</strong>
                                 <button
@@ -6397,7 +6624,7 @@ export default function App() {
                                   ×
                                 </button>
                               </div>
-                              <p>Choose existing footage or explicitly start a new camera take.</p>
+                              <p>Add a camera clip: import a video or image, or record a new camera take. Nothing records until you choose Record.</p>
                               <div className="lane-editor-actions">
                                 <button
                                   disabled={
@@ -6438,7 +6665,7 @@ export default function App() {
                                   Record new camera take
                                 </button>
                               </div>
-                            </div>
+                            </div></InspectorControls>
                           )}
                           {panel === 'edit' && (
                             <div className="editor-detail-tracks">
@@ -6452,7 +6679,7 @@ export default function App() {
                                     type="button"
                                     className="timeline-lane-select"
                                     aria-pressed={timelineSelection === 'zoom'}
-                                    onClick={() => setTimelineSelection('zoom')}
+                                    onClick={() => {setTimelineSelection('zoom');setZoomEditorClip(activeSegments[selectedSegment]?.id || null);}}
                                   >
                                     Zoom
                                   </button>
@@ -6499,19 +6726,20 @@ export default function App() {
                                               <button
                                                 className={`editor-zoom-clip ${timelineSelection === 'zoom' && zoomEditorClip === segment.id ? 'active' : ''}`}
                                                 disabled={exporting}
-                                                onClick={() => editTimelineZoom(segment.id)}
+                                                style={featureTimingStyle('zoom:'+segment.id,segment.start,segment.end)}
+                                                onPointerDown={e=>dragFeatureTiming(e,'zoom:'+segment.id,segment.start,segment.end)}
+                                                onClick={() => {if(!featureDragClick.current)editTimelineZoom(segment.id);}}
                                               >
-                                                {amount.toFixed(2)}× zoom<span>◇</span>
+                                                {featureEdges('zoom:'+segment.id,segment.start,segment.end)}<span className="zoom-keyframe-label">◇ {amount.toFixed(2)}×</span>
                                               </button>
                                             </>
                                           ) : (
-                                            <button
+                                            <button aria-label="Add zoom" title="Add zoom"
                                               className="lane-add-clip"
                                               disabled={exporting}
                                               onClick={() => addTimelineZoom(segment.id)}
                                             >
-                                              + Add zoom
-                                            </button>
+                                              {<Plus size={16} aria-hidden="true" />} </button>
                                           )}
                                         </div>
                                       );
@@ -6519,18 +6747,17 @@ export default function App() {
                                   </div>
                                 ) : (
                                   <div className="empty-track-actions">
-                                    <button disabled onClick={addZoomTrack}>
-                                      + Add zoom
-                                    </button>
+                                    <button aria-label="Add zoom" title="Add zoom" disabled onClick={addZoomTrack}>
+                                      {<Plus size={16} aria-hidden="true" />} </button>
                                     <small>Add screen footage first</small>
                                   </div>
                                 )}
                               </div>
-                              {zoomEditorClip &&
+                              {timelineSelection === 'zoom' && zoomEditorClip &&
                                 source &&
                                 settings.screenVisible !== false &&
                                 settings.primaryMedia !== 'camera' && (
-                                  <div className="lane-inline-editor zoom-lane-editor">
+                                  <InspectorControls><div className="lane-inline-editor zoom-lane-editor">
                                     <div>
                                       <strong>
                                         Zoom · Clip{' '}
@@ -6591,7 +6818,7 @@ export default function App() {
                                         disabled={exporting}
                                         onClick={() => {
                                           setTimelineZoom(zoomEditorClip, 1);
-                                          setSettings((old) => ({
+                                          setClipSettings((old) => ({
                                             ...old,
                                             autoZoom: false,
                                             zoomFollowsPath: false,
@@ -6623,6 +6850,8 @@ export default function App() {
                                       </button>
                                     </div>
                                     <div className="zoom-follow-controls">
+                                      <label className="auto-zoom-switch"><input type="checkbox" aria-label="Show cursor while following recorded path" checked={selectedClipEffectSettings().showCursor !== false} onChange={e => update('showCursor', e.target.checked)} /> Show cursor</label>
+                                      <p className="pointer-help">Follow the recorded movement with the cursor visible or hidden.</p>
                                       <div className="pointer-zoom-heading">
                                         <strong>Follow & focus</strong>
                                         <button
@@ -6632,26 +6861,26 @@ export default function App() {
                                         >
                                           {analyzing
                                             ? `Analyzing ${analysisProgress}%`
-                                            : 'Follow recorded cursor'}
+                                            : 'Follow recorded path'}
                                         </button>
                                       </div>
-                                      {settings.focusPoints?.length ? (
+                                      {selectedClipEffectSettings().focusPoints?.length ? (
                                         <label className="auto-zoom-switch">
                                           <input
                                             type="checkbox"
-                                            checked={Boolean(settings.autoZoom)}
+                                            checked={Boolean(selectedClipEffectSettings().autoZoom)}
                                             onChange={(e) => update('autoZoom', e.target.checked)}
                                           />{' '}
                                           Auto zoom enabled
                                         </label>
                                       ) : null}
-                                      {(!settings.pointerMotion ||
-                                        settings.pointerMotion === 'manual') && (
+                                      {(!selectedClipEffectSettings().pointerMotion ||
+                                        selectedClipEffectSettings().pointerMotion === 'manual') && (
                                         <>
                                           <label className="auto-zoom-switch">
                                             <input
                                               type="checkbox"
-                                              checked={Boolean(settings.zoomFollowsPath)}
+                                              checked={Boolean(selectedClipEffectSettings().zoomFollowsPath)}
                                               onChange={(e) =>
                                                 setSettings((old) => ({
                                                   ...old,
@@ -6665,7 +6894,7 @@ export default function App() {
                                             />{' '}
                                             Activity pointer auto zoom
                                           </label>
-                                          {settings.zoomFollowsPath && (
+                                          {selectedClipEffectSettings().zoomFollowsPath && (
                                             <p className="pointer-help">
                                               Follow pointer movement with a smooth zoom.
                                             </p>
@@ -6673,7 +6902,7 @@ export default function App() {
                                         </>
                                       )}
                                     </div>
-                                  </div>
+                                  </div></InspectorControls>
                                 )}
                               <div
                                 className="editor-lane"
@@ -6729,6 +6958,7 @@ export default function App() {
                                             .map((c, i) => (
                                               <button
                                                 className="editor-caption-clip timed"
+                                                onPointerDown={e => dragCaptionTiming(e, (settings.captions || []).indexOf(c))}
                                                 aria-pressed={
                                                   timelineSelection === 'caption' &&
                                                   captionSelection ===
@@ -6748,7 +6978,9 @@ export default function App() {
                                                   openCaptions();
                                                 }}
                                               >
+                                                <span className="feature-trim-edge start" onPointerDown={e=>dragCaptionTiming(e,(settings.captions || []).indexOf(c),'start')} />
                                                 {c.text}
+                                                <span className="feature-trim-edge end" onPointerDown={e=>dragCaptionTiming(e,(settings.captions || []).indexOf(c),'end')} />
                                               </button>
                                             ))
                                         )}
@@ -6758,13 +6990,12 @@ export default function App() {
                                 ) : (
                                   <div className="empty-track-actions">
                                     {laneMarkers('captions')}
-                                    <button
+                                    <button aria-label="Add caption" title="Add caption"
                                       onClick={() => {
                                         openCaptions();
                                       }}
                                     >
-                                      + Add caption
-                                    </button>
+                                      {<Plus size={16} aria-hidden="true" />} </button>
                                   </div>
                                 )}
                               </div>
@@ -6783,67 +7014,17 @@ export default function App() {
                                   >
                                     +
                                   </button>
-                                  {Boolean(
-                                    settings.musicName ||
-                                    ((settings.demoAudio || defaultAudio).musicTrack || 'none') !==
-                                      'none',
-                                  ) && (
-                                    <button
-                                      className="track-remove"
-                                      aria-label="Remove music"
-                                      disabled={exporting}
-                                      onClick={() => {
-                                        removeMusicTrack();
-                                        setMusicEditorOpen(false);
-                                      }}
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  )}
                                 </TimelineTrackLabel>
-                                <div className="editor-lane-slots">
-                                  {laneMarkers('music')}
-                                  {Boolean(
-                                    settings.musicName ||
-                                    ((settings.demoAudio || defaultAudio).musicTrack || 'none') !==
-                                      'none',
-                                  ) ? (
-                                    <div className="editable-lane-clip">
-                                      <button
-                                        className="editor-music-clip"
-                                        aria-pressed={timelineSelection === 'music'}
-                                        disabled={exporting}
-                                        onClick={() => {
-                                          setTimelineSelection('music');
-                                          setMusicEditorOpen(!musicEditorOpen);
-                                        }}
-                                      >
-                                        <Music2 size={13} />
-                                        <span>
-                                          {settings.musicName ||
-                                            (settings.demoAudio || defaultAudio).musicTrack}
-                                        </span>
-                                        <small>
-                                          {Math.round(
-                                            (settings.demoAudio || defaultAudio).musicVolume * 100,
-                                          )}
-                                          %
-                                        </small>
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      className="lane-add-clip"
-                                      disabled={exporting}
-                                      onClick={() => setMusicEditorOpen(true)}
-                                    >
-                                      + Add music
+                                <div className="editor-lane-slots">{laneMarkers('music')}
+                                  {musicClips().map(clip=><div key={clip.id} className="editable-lane-clip music-independent-slot" style={featureTimingStyle('music:'+clip.id,0,displayDuration)}>
+                                    <button className="editor-music-clip" aria-label={`Edit music clip ${clip.name||clip.track}`} onPointerDown={e=>dragFeatureTiming(e,'music:'+clip.id,0,displayDuration)} onClick={()=>{if(featureDragClick.current)return;setSelectedMusicClip(clip.id);setTimelineSelection('music');setMusicEditorOpen(true);update('musicName',clip.name);update('demoAudio',{...(settings.demoAudio||defaultAudio),musicTrack:clip.track,musicVolume:clip.volume});}}>
+                                      {featureEdges('music:'+clip.id,0,displayDuration)}<Music2 size={13}/><span>{clip.name||clip.track}</span><small>{Math.round(clip.volume*100)}%</small>
                                     </button>
-                                  )}
+                                  </div>)}
                                 </div>
                               </div>
-                              {musicEditorOpen && (
-                                <div className="lane-inline-editor music-lane-editor">
+                              {timelineSelection === 'music' && musicEditorOpen && (
+                                <InspectorControls><div className="lane-inline-editor music-lane-editor">
                                   <div>
                                     <strong>Music</strong>
                                     <button
@@ -6875,7 +7056,7 @@ export default function App() {
                                           musicBuffer.current = undefined;
                                           setMusicReady(false);
                                           update('musicName', undefined);
-                                          void storeAsset('music', new Blob());
+
                                         }
                                         update('demoAudio', {
                                           ...(settings.demoAudio || defaultAudio),
@@ -6916,24 +7097,28 @@ export default function App() {
                                       </small>
                                     </label>
                                   </div>
+                                  <label className="auto-zoom-switch"><input type="checkbox" checked={(settings.demoAudio||defaultAudio).effects} onChange={e=>update('demoAudio',{...(settings.demoAudio||defaultAudio),effects:e.target.checked})}/> Transition sound effects</label>
+                                  <label>Effects volume <input aria-label="Transition effects volume" type="range" min="0" max=".6" step=".01" value={(settings.demoAudio||defaultAudio).effectVolume} onChange={e=>update('demoAudio',{...(settings.demoAudio||defaultAudio),effectVolume:+e.target.value})}/></label>
+                                  <p>Apply to save this independent music clip. Drag either edge in the timeline to trim it.</p>
                                   <div className="lane-editor-actions">
+                                    <button className="button lime" disabled={exporting} onClick={()=>{applyMusicClip();}}>Apply music</button>
                                     <button
                                       disabled={exporting}
                                       onClick={() => {
-                                        removeMusicTrack();
-                                        setMusicEditorOpen(false);
+                                        setSettings(old=>({...old,musicClips:musicClips().filter(c=>c.id!==selectedMusicClip)}));
+                                        setSelectedMusicClip(null);setMusicEditorOpen(false);
                                       }}
                                     >
                                       <Trash2 size={12} />
                                       Remove music
                                     </button>
                                   </div>
-                                </div>
+                                </div></InspectorControls>
                               )}
                             </div>
                           )}
                           {panel === 'edit' && !recreated && settings.primaryMedia !== 'camera' && (
-                            <div className="editor-lane timeline-cursor-lane">
+                            <div className="editor-lane timeline-cursor-lane" onClickCapture={e=>seekLane(e,'cursor')}>
                               <TimelineTrackLabel>
                                 <MousePointer2 size={14} />
                                 <button
@@ -6948,24 +7133,37 @@ export default function App() {
                                   Cursor
                                 </button>
                               </TimelineTrackLabel>
-                              <div className="empty-track-actions">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTimelineSelection('cursor');
-                                    setCursorExpanded(true);
-                                  }}
-                                >
-                                  Edit cursor
-                                </button>
-                                <small>Draw a path or float at focus</small>
-                              </div>
+                              {activeSegments.some(segment => clipEffectSettings(settings, segment.id).cursorStyle && clipEffectSettings(settings, segment.id).cursorStyle !== 'none') ? (
+                                <div className="editor-lane-slots cursor-timeline-slots">
+                                  {activeSegments.map((segment, index) => (
+                                    <div key={segment.id} className="cursor-timeline-slot" style={{flex: `${Math.max(.25, segment.end-segment.start)} 1 0`}}>
+                                      {!segment.gap && screenRange(segment).end > screenRange(segment).start && (
+                                        <button type="button" className="cursor-timeline-clip"
+                                          onPointerDown={e=>dragFeatureTiming(e,'cursor:'+segment.id,segment.start,segment.end)}
+                                          aria-label={`Edit ${clipEffectSettings(settings, segment.id).cursorStyle === 'auto' ? 'automatic' : clipEffectSettings(settings, segment.id).cursorStyle} cursor for clip ${index+1}`}
+                                          onClick={() => {setSelectedSegment(index);setTimelineSelection('cursor');setCursorExpanded(true);}}
+                                          style={featureTimingStyle('cursor:'+segment.id,segment.start,segment.end)}>
+                                          {featureEdges('cursor:'+segment.id,segment.start,segment.end)}
+                                          <MousePointer2 size={13} />
+                                          <span>{clipEffectSettings(settings, segment.id).cursorStyle === 'auto' ? 'Automatic · Arrow / Hand / Text' : ({arrow:'Arrow',hand:'Hand',circle:'Circle',crosshair:'Crosshair',glow:'Soft glow',ring:'Ring',target:'Target',ibeam:'Text',none:'Hidden',auto:'Automatic'}[clipEffectSettings(settings, segment.id).cursorStyle || 'arrow'])}</span>
+                                          <Check size={11} className="cursor-track-saved" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="empty-track-actions">
+                                  <button type="button" aria-label="Add cursor" title="Add cursor" onClick={() => {setTimelineSelection('cursor');setCursorExpanded(true);}}><Plus size={16} /></button>
+                                  <small>Select a cursor style to add it to the timeline</small>
+                                </div>
+                              )}
                             </div>
                           )}
                           {!recreated &&
                             settings.primaryMedia !== 'camera' &&
                             timelineSelection === 'cursor' && (
-                              <details
+                              <InspectorControls><details
                                 className="timeline-pointer-tools timeline-cursor-expandable pointer-inspector-enter"
                                 open={cursorExpanded}
                                 onToggle={(e) => setCursorExpanded(e.currentTarget.open)}
@@ -7010,7 +7208,7 @@ export default function App() {
                                           onClick={() => {
                                             const id = activeSegments[selectedSegment]?.id;
                                             if (id) {
-                                              setSettings((old) => ({
+                                              setClipSettings((old) => ({
                                                 ...old,
                                                 mobileClipFraming: {
                                                   ...old.mobileClipFraming,
@@ -7052,7 +7250,7 @@ export default function App() {
                                       <button
                                         key={mode.id}
                                         aria-pressed={
-                                          (settings.pointerMotion || 'manual') === mode.id
+                                          (selectedClipEffectSettings().pointerMotion || 'manual') === mode.id
                                         }
                                         onClick={() => {
                                           if (mode.id === 'focus') {
@@ -7076,8 +7274,8 @@ export default function App() {
                                       </button>
                                     ))}
                                   </div>
-                                  {(!settings.pointerMotion ||
-                                    settings.pointerMotion === 'manual') && (
+                                  {(!selectedClipEffectSettings().pointerMotion ||
+                                    selectedClipEffectSettings().pointerMotion === 'manual') && (
                                     <div className="pointer-tool-buttons">
                                       <button
                                         className={`button quiet ${pointerMode === 'place' ? 'is-active' : ''}`}
@@ -7133,7 +7331,7 @@ export default function App() {
                                         onClick={() => {
                                           const id = activeSegments[selectedSegment]?.id;
                                           if (id)
-                                            setSettings((old) => ({
+                                            setClipSettings((old) => ({
                                               ...old,
                                               manualPointer: { ...old.manualPointer, [id]: [] },
                                             }));
@@ -7152,6 +7350,7 @@ export default function App() {
                                     >
                                       {(
                                         [
+                                          { id: 'auto', name: 'Automatic', icon: Sparkles },
                                           { id: 'arrow', name: 'Arrow', icon: MousePointer2 },
                                           { id: 'hand', name: 'Hand', icon: Hand },
                                           { id: 'circle', name: 'Circle', icon: Circle },
@@ -7167,11 +7366,12 @@ export default function App() {
                                           title={shape.name}
                                           aria-label={shape.name}
                                           aria-pressed={
-                                            (settings.cursorStyle || 'arrow') === shape.id
+                                            (selectedClipEffectSettings().cursorStyle || 'arrow') === shape.id
                                           }
-                                          onClick={() => update('cursorStyle', shape.id)}
+                                          onClick={() => setClipSettings((old) => ({ ...old, cursorStyle: shape.id, ...(shape.id === 'auto' && old.cursorTelemetry?.length ? {pointerMotion: 'recorded' as const, autoZoom: true, zoomSource: 'cursor' as const} : {}) }))}
                                         >
-                                          <shape.icon size={18} />
+                                          <PointerPreview style={shape.id} />
+                                          <span>{shape.name === 'Hide pointer' ? 'Hidden' : shape.name}</span>
                                         </button>
                                       ))}
                                     </div>
@@ -7182,16 +7382,26 @@ export default function App() {
                                         type="range"
                                         min="12"
                                         max="80"
-                                        value={settings.cursorSize || 28}
+                                        value={selectedClipEffectSettings().cursorSize || 28}
                                         onChange={(e) => update('cursorSize', +e.target.value)}
                                       />
-                                      <span>{settings.cursorSize || 28}px</span>
+                                      <span>{selectedClipEffectSettings().cursorSize || 28}px</span>
                                     </label>
+                                    <button type="button" className="save-cursor-button" aria-label="Save cursor selection"
+                                      onClick={() => {
+                                        localStorage.setItem('frame-settings', JSON.stringify(settings));
+                                        setPointerMode('off');
+                                        setCursorExpanded(false);
+                                        announce('Cursor selection saved.');
+                                      }}>
+                                      <Check size={16} /> Save cursor
+                                    </button>
                                   </div>
+                                  <label className="auto-zoom-switch"><input type="checkbox" aria-label="Show cursor" checked={selectedClipEffectSettings().showCursor !== false} onChange={e => update('showCursor', e.target.checked)} /> Show cursor</label>
                                   <p className="pointer-help" role="status">
-                                    {settings.pointerMotion === 'recorded'
-                                      ? 'Uses cursor movement captured by the extension.'
-                                      : settings.pointerMotion === 'focus'
+                                    {selectedClipEffectSettings().pointerMotion === 'recorded'
+                                      ? selectedClipEffectSettings().cursorStyle === 'auto' ? 'Follows the recorded cursor and switches between arrow, hand, and text when shape data is available.' : 'Uses your recorded cursor movement.'
+                                      : selectedClipEffectSettings().pointerMotion === 'focus'
                                         ? 'Floats gently around the zoom focal point.'
                                         : pointerMode === 'live'
                                           ? 'Hold and drag in the preview. The clip plays while your movement is recorded at video time. Release to save.'
@@ -7283,34 +7493,10 @@ export default function App() {
                                     </div>
                                   </details>
                                 </div>
-                              </details>
+                              </details></InspectorControls>
                             )}
-                          <div className="timeline-actions">
-                            <span>Drag clip edges to trim · drag clips to reorder</span>
-                            <button
-                              disabled={exporting}
-                              onClick={() =>
-                                saveSegments(
-                                  recreated
-                                    ? settings.websiteDemo?.creative &&
-                                      settings.websiteDemo.motion?.template === 'ai'
-                                      ? creativeChapters(settings.websiteDemo.creative).map(
-                                          (c, i, list) => ({
-                                            id: `creative-${i}`,
-                                            start: c.time,
-                                            end: list[i + 1]?.time || websiteRawDuration,
-                                          }),
-                                        )
-                                      : settings.websiteDemo?.motion
-                                        ? defaultSegments()
-                                        : [{ id: 'website', start: 0, end: websiteRawDuration }]
-                                    : [{ id: 'recording', start: settings.trimStart, end }],
-                                )
-                              }
-                            >
-                              Reset
-                            </button>
-                          </div>
+                          </TimelineViewport>
+
                         </Timeline>
                       ))}
                     {panel !== 'edit' && recreated && (
@@ -7346,16 +7532,26 @@ export default function App() {
                       />
                     )}
                   </section>
-                  <aside className="inspector">
-                    <div className="inspector-section-title">
-                      {panel !== 'edit' ? 'Studio Inspector' : 'Properties Inspector'}
-                    </div>
+                  <aside className={`inspector ${mobileFeatureOpen ? 'mobile-feature-open' : ''}`} role={mobileFeatureOpen&&mobileView?'dialog':undefined} aria-modal={undefined} aria-label="Feature settings">
+                    <div className="mobile-feature-heading"><strong>Feature settings</strong><button type="button" onClick={()=>setMobileFeatureOpen(false)}>Done</button></div>
+                    <div id="feature-inspector" />{panel === 'edit' && timelineSelection === 'caption' && <section className="control-section"><h3>Captions</h3>{captionControls()}</section>}
+                    {panel !== 'edit' && <div className="inspector-section-title">Studio Inspector</div>}
                     {panel === 'edit' ? (
                       <>
-                        <div className="desktop-canvas-background">
-                          {canvasBackgroundControls()}
+                        <div className="desktop-canvas-background" hidden={timelineSelection !== 'video'}>
+                          <details className="inspector-accordion" open><summary>Canvas background</summary>{canvasBackgroundControls()}</details>
+                          <details className="inspector-accordion" open><summary>Screen appearance</summary><div className="control-section screen-appearance-controls">
+                            <h3>Screen appearance</h3>
+                            <label>Corner roundness <output>{settings.screenRadius ?? 18}px</output>
+                              <input aria-label="Screen corner roundness" type="range" min="0" max="120" value={settings.screenRadius ?? 18} onChange={e => update('screenRadius', Number(e.target.value))}/>
+                            </label>
+                            <div className="layout-size-presets"><button onClick={() => update('screenRadius', 0)}>Sharp</button><button onClick={() => update('screenRadius', 18)}>Rounded</button><button onClick={() => update('screenRadius', 80)}>Soft</button></div>
+                            <label>Shadow intensity <output>{settings.screenShadow ?? 0}%</output>
+                              <input aria-label="Screen shadow intensity" type="range" min="0" max="100" value={settings.screenShadow ?? 0} onChange={e => update('screenShadow', Number(e.target.value))}/>
+                            </label>
+                          </div></details>
                         </div>
-                        {Boolean(camSource || settings.cameraTakes?.length) && (
+                        {timelineSelection === 'camera' && Boolean(camSource || settings.cameraTakes?.length) && (
                           <div className="control-section">
                             <h3>
                               {settings.primaryMedia === 'camera'
@@ -7378,6 +7574,10 @@ export default function App() {
                                     : 'Camera floats over your recording. Choose its shape, size and corner.'
                                   : 'Enable Camera before recording to capture your presenter separately.'}
                             </p>
+                            <label className="camera-cutout-toggle">
+                              <input type="checkbox" checked={Boolean(settings.cameraCutout)} onChange={e => update('cameraCutout', e.target.checked)} />
+                              <span>Camera cutout<small>{settings.cameraCutout && cutoutStatus === 'loading' ? 'Preparing…' : settings.cameraCutout && cutoutStatus === 'error' ? 'Could not start · try again' : 'Remove the background · processed on this device'}</small></span>
+                            </label>
                             {settings.camera &&
                               Boolean(camSource || settings.cameraTakes?.length) && (
                                 <details className="camera-framing" open>
@@ -7582,7 +7782,7 @@ export default function App() {
                                               (portrait ? 'outside' : 'overlay')) === layout
                                           }
                                           key={layout}
-                                          onClick={() => update('mobileCameraLayout', layout)}
+                                          onClick={() => setCameraPlacement(layout)}
                                         >
                                           {layout === 'outside' ? 'Outside screen' : 'Overlay'}
                                         </button>
@@ -7617,15 +7817,7 @@ export default function App() {
                                                 : settings.cameraPosition || 'bottom-right') ===
                                               position
                                             }
-                                            onClick={() =>
-                                              update(
-                                                (settings.mobileCameraLayout ||
-                                                  (portrait ? 'outside' : 'overlay')) === 'outside'
-                                                  ? 'mobileCameraPosition'
-                                                  : 'cameraPosition',
-                                                position,
-                                              )
-                                            }
+                                            onClick={() => setCameraPlacement(settings.mobileCameraLayout || (portrait ? 'outside' : 'overlay'), position)}
                                           >
                                             <span className={position} />
                                           </button>
@@ -7785,7 +7977,7 @@ export default function App() {
                                   setPlaying(false);
                                   recordSegment.current = 0;
                                   if (video.current)
-                                    video.current.currentTime = recordingSegments[0].start;
+                                    seekMediaTime(video.current, recordingSegments[0].start);
                                   if (camera.current)
                                     camera.current.currentTime = recordingSegments[0].start;
                                   setTime(0);
@@ -8312,9 +8504,8 @@ export default function App() {
         >
           <div>
             <strong>Adding your next clip</strong>
-            <p>Your previous recording and edits are kept. Joining locally…</p>
-            <progress value={joinProgress} max={100} />
-            <span>{Math.round(joinProgress)}%</span>
+            <p>Saving this clip separately. Your existing clips and edits stay in place.</p>
+            <progress aria-label="Saving clip" />
           </div>
         </div>
       )}
@@ -8567,7 +8758,7 @@ export default function App() {
             };
             draw(0);
             stream = canvas.captureStream(30);
-            const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(
+            const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find(
               (t) => MediaRecorder.isTypeSupported(t),
             );
             if (!mime) throw new Error('Image animation encoding is unavailable in this browser.');
@@ -8708,6 +8899,9 @@ export default function App() {
               await context.close();
             }
             await storeAsset('music', selected);
+            const musicAsset='music-'+crypto.randomUUID();await storeAsset(musicAsset,selected);
+            const start=pendingMusicTime.current??time;const id=crypto.randomUUID();
+            setSettings(old=>({...old,musicClips:[...musicClips(),{id,start,end:displayDuration,offset:0,track:'none',volume:.16,asset:musicAsset,name:selected.name}]}));setSelectedMusicClip(id);pendingMusicTime.current=null;
             setMusicReady(true);
             update('musicName', selected.name);
             update('demoAudio', {
@@ -8715,7 +8909,7 @@ export default function App() {
               musicVolume: 0.16,
               musicTrack: 'none',
             });
-            setMusicEditorOpen(true);
+            setTimelineSelection('music');setMusicEditorOpen(true);
             announce('Music loaded. Press Play to hear the mix.');
           } catch (err) {
             announce((err as Error).message);

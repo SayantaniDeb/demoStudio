@@ -1,4 +1,4 @@
-export type CursorSample = { time: number; x: number; y: number; click: boolean };
+export type CursorSample = { time: number; x: number; y: number; click: boolean; shape?: 'arrow' | 'hand' | 'ibeam' };
 export function companionCommand(
   command: 'hello' | 'start' | 'stop',
   id?: string,

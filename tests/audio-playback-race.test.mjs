@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const code=ts.transpileModule(fs.readFileSync('src/demoAudio.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {DemoAudioPlayer}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+let resumes=[],started=0;
+globalThis.AudioContext=class {destination={};resume(){return new Promise(resolve=>resumes.push(resolve));}createBufferSource(){return {connect(){},start(){started++;},stop(){}};}};
+const player=new DemoAudioPlayer();
+const first=player.play({duration:10},1), second=player.play({duration:10},3);
+resumes[0]();resumes[1]();await Promise.all([first,second]);assert.equal(started,1);
+const pending=player.play({duration:10},4);player.stop();resumes[2]();await pending;assert.equal(started,1);
+console.log('Overlapping play requests and stop during resume cannot start stale audio.');
