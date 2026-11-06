@@ -99,6 +99,7 @@ export class DemoAudioPlayer {
   private generation = 0;
   context?: AudioContext;
   source?: AudioBufferSourceNode;
+  unlock() { this.context ??= new AudioContext(); return this.context.resume(); }
   async play(buffer: AudioBuffer, offset = 0, destination?: AudioNode) {
     this.stop();
     const generation = this.generation;

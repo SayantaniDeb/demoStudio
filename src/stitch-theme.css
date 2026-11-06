@@ -4806,3 +4806,116 @@ body:not(.native-mac-editor) .app.studio-glass .timeline-navigation > .timeline-
 }
 .app.studio-glass .music-independent-slot { height:30px;top:3px; }
 .app.studio-glass .music-independent-slot .editor-music-clip { position:relative!important;left:auto!important;width:100%!important;height:30px; }
+
+/* Empty and populated effect tracks must share the same positioned time coordinate. */
+.app.studio-glass.stitch-editor .timeline-zoom-content .editor-lane > .empty-track-actions,
+.app.studio-glass.stitch-editor .timeline-zoom-content .editor-lane > .editor-lane-slots {
+  position:relative!important;
+  grid-column:2;
+  width:calc(100% * var(--timeline-clip-scale,1));
+  min-width:0;box-sizing:border-box;
+}
+.app.studio-glass .editor-zoom-clip,
+.app.studio-glass .editor-zoom-clip:is(.active,:hover,:focus-visible) {
+  background:#dce9bf;
+  background-image:none;
+  color:#354b21;
+  border:1px solid #a2ba77;
+  border-radius:7px;
+  box-shadow:none;
+  display:flex;align-items:center;
+}
+.app.studio-glass.theme-dark .editor-zoom-clip,
+.app.studio-glass.theme-dark .editor-zoom-clip:is(.active,:hover,:focus-visible) {
+  background:#37482d;color:#e0edc9;border-color:#738b54;
+}
+.app.studio-glass .editor-zoom-clip .zoom-keyframe-label {
+  background:transparent!important;border:0!important;box-shadow:none;
+  color:inherit;border-radius:0;padding:0;font-size:11px;
+}
+.app.studio-glass .editor-zoom-clip.active { outline:1px solid var(--feature-accent);outline-offset:1px; }
+
+/* Filled rose glass distinguishes zoom clips across both themes. */
+.app.studio-glass.stitch-editor .editor-zoom-clip,
+.app.studio-glass.stitch-editor .editor-zoom-clip:is(.active,:hover,:focus-visible) {
+  background:linear-gradient(180deg,#f9d5e5,#edb9d0)!important;
+  border:1px solid #cf85aa!important;
+  color:#672c4b!important;
+  box-shadow:inset 0 1px 0 #ffffff99,0 1px 4px #a54b7620;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.app.studio-glass.stitch-editor.theme-dark .editor-zoom-clip,
+.app.studio-glass.stitch-editor.theme-dark .editor-zoom-clip:is(.active,:hover,:focus-visible) {
+  background:linear-gradient(180deg,#75445e,#593448)!important;
+  border-color:#b87799!important;color:#ffe0ef!important;
+  box-shadow:inset 0 1px 0 #ffc4e233,0 1px 4px #0002;
+}
+.app.studio-glass.stitch-editor .editor-zoom-clip .zoom-keyframe-label { color:inherit!important;background:transparent!important;border:0!important; }
+.app.studio-glass.stitch-editor .editor-zoom-clip.active { outline-color:#ce76a4; }
+
+/* Caption transcript cards must not retain their original white card surface. */
+.app.studio-glass .caption-segment-editor {
+  background:var(--feature-input);color:var(--glass-text);
+  border:1px solid var(--glass-line);border-radius:10px;
+}
+.app.studio-glass .caption-segment-editor.selected {
+  background:var(--feature-selected);border-color:var(--feature-accent);
+}
+.app.studio-glass .caption-segment-editor .caption-segment-time {
+  background:transparent;color:var(--glass-muted);border-color:var(--glass-line);
+}
+.app.studio-glass .caption-segment-editor textarea {
+  background:var(--feature-input);color:var(--glass-text);border-color:var(--glass-line);
+  width:100%;min-width:0;box-sizing:border-box;
+}
+.app.studio-glass .caption-segment-editor button { color:var(--glass-text);background:transparent;border-color:var(--glass-line); }
+.app.studio-glass .caption-segment-list { scrollbar-color:var(--glass-muted) transparent; }
+
+/* Reserve a real timeline row in WKWebView instead of relying on flex/container sizing. */
+.native-mac-editor .app.studio-glass.stitch-editor .editor:not(.preview-fullscreen) > .stage-area {
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(100px,1fr) minmax(220px,32dvh);
+  container-type:normal;
+  height:100dvh;min-height:0;overflow:hidden;
+  align-items:stretch;
+}
+.native-mac-editor .app.studio-glass.stitch-editor #mobile-layout-slot { display:none; }
+.native-mac-editor .app.studio-glass.stitch-editor .stage-area > .stage-heading { grid-row:1; }
+.native-mac-editor .app.studio-glass.stitch-editor .stage-area > .studio-preview-stage {
+  grid-row:2;align-self:center;justify-self:center;
+  --native-preview-height:max(100px,calc(68dvh - 90px));
+  width:min(calc(100% - 24px),calc(var(--native-preview-height) * var(--preview-ratio)));
+  height:auto;aspect-ratio:var(--preview-ratio);max-height:100%;
+}
+.native-mac-editor .app.studio-glass.stitch-editor .stage-area > .shared-timeline {
+  grid-row:3;display:block!important;width:100%;height:100%;min-height:0;max-height:none;
+  overflow-y:auto;overflow-x:hidden;align-self:stretch;
+}
+
+/* Native and web editors share the same gesture-driven timeline controls. */
+.app.studio-glass #timeline-scale-slot,
+.app.studio-glass .timeline-navigation > .timeline-scale-controls { display:none!important; }
+
+/* Fullscreen bypasses the native editor's reserved preview/timeline grid. */
+.native-mac-editor .app.studio-glass .editor.preview-fullscreen > .stage-area {
+  display:flex!important;flex-direction:column;container-type:normal;
+  width:100vw;height:100dvh;min-height:0;padding:0;overflow:hidden;
+}
+.native-mac-editor .app.studio-glass .editor.preview-fullscreen .studio-preview-stage {
+  width:100%!important;height:calc(100dvh - 60px)!important;
+  max-height:none!important;max-width:none!important;flex:1 1 0;align-self:stretch;
+  margin:0!important;aspect-ratio:auto!important;
+}
+.native-mac-editor .app.studio-glass .editor.preview-fullscreen .composition-preview {
+  width:min(100vw,calc((100dvh - 60px) * var(--preview-ratio)))!important;
+  height:auto!important;max-height:calc(100dvh - 60px)!important;object-fit:contain;
+}
+
+/* Fullscreen is video-only: editor-specific display overrides must never reveal tracks. */
+.app.studio-glass.stitch-editor .editor.preview-fullscreen > .stage-area > :not(.studio-preview-stage) { display:none!important; }
+.app.studio-glass.stitch-editor .editor.preview-fullscreen > .inspector { display:none!important; }
+.app.studio-glass.stitch-editor .editor.preview-fullscreen > .stage-area { display:grid!important;place-items:center;height:100dvh;width:100vw;padding:0; }
+.app.studio-glass.stitch-editor .editor.preview-fullscreen .studio-preview-stage { width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important; }
+.app.studio-glass.stitch-editor .editor.preview-fullscreen .composition-preview { width:min(100vw,calc(100dvh * var(--preview-ratio)))!important;height:auto!important;max-height:100dvh!important;object-fit:contain; }
+.app.studio-glass .fullscreen-play-toggle { position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;display:grid;place-items:center;width:48px;height:48px;border:1px solid #ffffff60;border-radius:50%;background:#101817b8;color:#fff;backdrop-filter:blur(14px);cursor:pointer; }

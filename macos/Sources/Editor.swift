@@ -40,6 +40,10 @@ final class Editor: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         }
     }
 
+    func exportVideo() {
+        webView.evaluateJavaScript("document.querySelector('button.header-export:not(:disabled)')?.click()")
+    }
+
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "http",
               message.frameInfo.securityOrigin.host == "127.0.0.1", message.frameInfo.securityOrigin.port == 19743,

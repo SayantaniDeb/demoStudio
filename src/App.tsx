@@ -434,10 +434,13 @@ export default function App() {
   }
   function applyMusicClip() {
     const list=musicClips(), existing=list.find(c=>c.id===selectedMusicClip);
-    const start=existing?.start??pendingMusicTime.current??time;
+    const requestedStart=existing?.start??pendingMusicTime.current??0;
+    const start=Math.max(0,Math.min(Math.max(0,displayDuration-.1),requestedStart));
     const clip={id:existing?.id||crypto.randomUUID(),start,end:existing?.end??displayDuration,offset:existing?.offset||0,track:(settings.demoAudio||defaultAudio).musicTrack||'none' as const,volume:(settings.demoAudio||defaultAudio).musicVolume,asset:settings.musicName?(existing?.asset||'music'):undefined,name:settings.musicName};
     setSettings(old=>({...old,musicClips:existing?list.map(c=>c.id===existing.id?clip:c):[...list,clip]}));setSelectedMusicClip(clip.id);pendingMusicTime.current=null;
-    announce('Music clip applied. Drag its edges to trim.');
+    seek(start);
+    void soundPlayer.current.unlock().catch(()=>{});
+    announce('Music clip applied. Press Play to hear it from its start.');
   }
   const [musicEditorOpen, setMusicEditorOpen] = useState(false);
   const [cameraSetupOpen, setCameraSetupOpen] = useState(false);
@@ -2978,7 +2981,7 @@ export default function App() {
     for(const clip of musicClips()) {
       const range=settings.featureRanges?.['music:'+clip.id]||clip;
       let uploaded:AudioBuffer|undefined;
-      if(clip.asset) { const blob=await loadAsset(clip.asset);if(blob?.size){const context=new AudioContext();try{uploaded=await context.decodeAudioData(await blob.arrayBuffer());}finally{await context.close();}} }
+      if(clip.asset) { const blob=await loadAsset(clip.asset);if(!blob?.size) throw new Error('The audio file for this music clip is missing. Please replace it.');if(blob?.size){const context=new AudioContext();try{uploaded=await context.decodeAudioData(await blob.arrayBuffer());}finally{await context.close();}} }
       const piece=await makeSoundtrack(Math.max(.1,range.end-clip.start+clip.offset),[],uploaded,{...audio,musicTrack:clip.track,musicVolume:clip.volume,effects:false});
       for(let ch=0;ch<buffer.numberOfChannels;ch++) {
         const target=buffer.getChannelData(ch),source=piece.getChannelData(Math.min(ch,piece.numberOfChannels-1));
@@ -3016,9 +3019,9 @@ export default function App() {
     }
     if (time >= displayDuration - 0.01) seek(0);
     playbackStarting.current = true;
+    void soundPlayer.current.unlock().catch(()=>{});
     try {
-      const buffer = await soundtrack();
-      await soundPlayer.current.play(buffer, time >= displayDuration - 0.01 ? 0 : time);
+      // Start media within the user's click gesture; WKWebView rejects delayed play calls.
       if (recreated) demoPlaying.current = true;
       else {
         const v = video.current;
@@ -3032,7 +3035,14 @@ export default function App() {
         await v.play();
         if (camera.current) void camera.current.play();
       }
+      currentMusicPlayback.current={playing:true,time:time>=displayDuration-.01?0:time};
       setPlaying(true);
+      const startedAt = performance.now();
+      void soundtrack().then(buffer => {
+        if (!currentMusicPlayback.current.playing) return;
+        const offset=(time >= displayDuration-.01 ? 0 : time)+(performance.now()-startedAt)/1000;
+        return soundPlayer.current.play(buffer,Math.min(offset,displayDuration));
+      }).catch(error=>announce(`Video is playing, but music could not start: ${error.message}`));
     } catch (e) {
       soundPlayer.current.stop();
       announce((e as Error).message);
@@ -3859,7 +3869,8 @@ export default function App() {
     const w = 1280,
       h = 720;
     ctx.clearRect(0, 0, w, h);
-    paintBackground(ctx, w, h);
+    // Portrait composition paints one full-size background after this transparent media layer.
+    if (!portrait) paintBackground(ctx, w, h);
     const total = Math.max(0.1, displayDuration);
     const progress = Math.max(0, Math.min(1, elapsed / total));
     const pathSegment =
@@ -3972,25 +3983,29 @@ export default function App() {
       const bounds = !animated && settings.primaryMedia !== 'camera'
         ? zoomedScreenBounds({x,y,width,height},{width:1280,height:720},focus.zoom)
         : {x,y,width,height};
-      const padding = Math.max(bounds.x, bounds.y, 1280-bounds.x-bounds.width, 720-bounds.y-bounds.height);
-      const radius = Math.min(settings.screenRadius ?? 18, Math.max(0,padding), bounds.width/2, bounds.height/2);
+      const scale = fit * focus.zoom;
+      const sw = v.videoWidth * scale, sh = v.videoHeight * scale;
+      const imageX = expandedMediaOffset(bounds.x,bounds.width,sw,x+frameOffset(width,sw,focus.x,follow));
+      const imageY = expandedMediaOffset(bounds.y,bounds.height,sh,y+frameOffset(height,sh,focus.y,follow));
+      // Round the visible footage itself, including contain-mode letterboxing.
+      const clipX=Math.max(bounds.x,imageX), clipY=Math.max(bounds.y,imageY);
+      const clipWidth=Math.max(0,Math.min(bounds.x+bounds.width,imageX+sw)-clipX);
+      const clipHeight=Math.max(0,Math.min(bounds.y+bounds.height,imageY+sh)-clipY);
+      const radius = Math.min(settings.screenRadius ?? 18, clipWidth/2, clipHeight/2);
       if ((settings.screenShadow ?? 0) > 0) {
         ctx.save();
         ctx.shadowColor = `rgba(0,0,0,${(settings.screenShadow ?? 0)/100*.55})`;
         ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
         ctx.fillStyle = settings.background;
-        ctx.beginPath(); ctx.roundRect(bounds.x,bounds.y,bounds.width,bounds.height,radius); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(clipX,clipY,clipWidth,clipHeight,radius); ctx.fill();
         ctx.restore(); ctx.beginPath();
       }
-      ctx.roundRect(bounds.x,bounds.y,bounds.width,bounds.height,radius);
+      ctx.roundRect(clipX,clipY,clipWidth,clipHeight,radius);
       ctx.clip();
-      const scale = fit * focus.zoom;
-      const sw = v.videoWidth * scale,
-        sh = v.videoHeight * scale;
       ctx.drawImage(
         screenImage,
-        expandedMediaOffset(bounds.x,bounds.width,sw,x+frameOffset(width,sw,focus.x,follow)),
-        expandedMediaOffset(bounds.y,bounds.height,sh,y+frameOffset(height,sh,focus.y,follow)),
+        imageX,
+        imageY,
         sw,
         sh,
       );
@@ -5703,6 +5718,7 @@ export default function App() {
                       }}
                     >
                         <button type="button" className="fullscreen-preview-toggle" aria-label={previewFullscreen ? 'Exit fullscreen preview' : 'Fullscreen preview'} title={previewFullscreen ? 'Return to editor (Esc)' : 'Fullscreen preview'} onClick={() => setPreviewFullscreen(value => !value)}><Scan size={17} /></button>
+                      {previewFullscreen && <button type="button" className="fullscreen-play-toggle" aria-label={playing?'Pause video':'Play video'} title={playing?'Pause':'Play'} onClick={()=>void togglePlay()}>{playing?<Pause size={24}/>:<Play size={24}/>}</button>}
                       {panel === 'website' && !settings.websiteDemo && (
                         <div className="website-stage-empty">
                           <ArrowUpRight size={34} />
@@ -7080,13 +7096,10 @@ export default function App() {
                                         max="1"
                                         step=".01"
                                         disabled={exporting}
-                                        value={(settings.demoAudio || defaultAudio).musicVolume}
+                                        value={musicClips().find(c=>c.id===selectedMusicClip)?.volume ?? (settings.demoAudio || defaultAudio).musicVolume}
                                         onChange={(e) => {
-                                          soundPlayer.current.stop();
-                                          update('demoAudio', {
-                                            ...(settings.demoAudio || defaultAudio),
-                                            musicVolume: +e.target.value,
-                                          });
+                                          const volume=+e.target.value;
+                                          setSettings(old=>({...old,demoAudio:{...(old.demoAudio||defaultAudio),musicVolume:volume},musicClips:musicClips().map(clip=>clip.id===selectedMusicClip?{...clip,volume}:clip)}));
                                         }}
                                       />
                                       <small>

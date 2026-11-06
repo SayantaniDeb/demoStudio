@@ -89,6 +89,11 @@ struct StudioWindow: View {
                        let saved = recorder.importFile(url) { editor.importRecording(saved) }
                 } label: { Label("Import", systemImage: "plus") }
                     .disabled(recorder.recording || recorder.busy)
+                Button { editor.exportVideo() } label: {
+                    Label("Export video", systemImage: "square.and.arrow.up")
+                }
+                .disabled(recorder.recording || recorder.busy)
+                .help("Export the edited video with captions, music and effects")
                 Rectangle().fill(Color.black.opacity(0.10)).frame(width: 1, height: 24).padding(.horizontal, 4)
                 Button { controls.toggle() } label: {
                     Label("Capture settings", systemImage: "slider.horizontal.3")
